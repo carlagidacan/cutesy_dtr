@@ -17,7 +17,16 @@ let dbConnectionPromise
 app.use(cors())
 app.use(express.json())
 
+app.get('/api/test', (req, res) => {
+  res.json({ message: 'Server Connected Successfully!' })
+})
+
 app.use(async (req, res, next) => {
+  if (req.path === '/api/test') {
+    next()
+    return
+  }
+
   try {
     await connectDB()
     next()
@@ -33,11 +42,6 @@ app.use('/api/auth', authRoutes)
 app.use('/api/internship', internshipRoutes)
 app.use('/api/records', timeRecordsRoutes)
 
-// Test route
-app.get('/api/test', (req, res) => {
-  res.json({ message: 'Server Connected Successfully!' })
-})
-
 // Connect to MongoDB
 const connectDB = async () => {
   if (mongoose.connection.readyState === 1) {
@@ -50,7 +54,9 @@ const connectDB = async () => {
 
   try {
     if (process.env.MONGODB_URI) {
-      dbConnectionPromise = mongoose.connect(process.env.MONGODB_URI)
+      dbConnectionPromise = mongoose.connect(process.env.MONGODB_URI, {
+        serverSelectionTimeoutMS: 10000
+      })
       await dbConnectionPromise
       console.log('MongoDB connected successfully')
       return mongoose.connection
