@@ -1,0 +1,95 @@
+import express from 'express'
+import Internship from '../models/Internship.js'
+import auth from '../middleware/auth.js'
+
+const router = express.Router()
+
+// Get internship configuration
+router.get('/config', auth, async (req, res) => {
+  try {
+    const internship = await Internship.findOne({ userId: req.user.id })
+    
+    if (!internship) {
+      return res.status(404).json({ message: 'No internship configuration found' })
+    }
+
+    res.json(internship)
+  } catch (error) {
+    console.error(error.message)
+    res.status(500).send('Server error')
+  }
+})
+
+// Create or update internship configuration
+router.post('/config', auth, async (req, res) => {
+  try {
+    const { requiredHours, startDate, estimatedEndDate, workingDays, hoursPerDay } = req.body
+
+    // Validate required fields
+    if (!requiredHours || !startDate || !estimatedEndDate) {
+      return res.status(400).json({ 
+        message: 'Required hours, start date, and estimated end date are required' 
+      })
+    }
+
+    // Check if internship config already exists for this user
+    let internship = await Internship.findOne({ userId: req.user.id })
+
+    if (internship) {
+      // Update existing configuration
+      internship.requiredHours = requiredHours
+      internship.startDate = startDate
+      internship.estimatedEndDate = estimatedEndDate
+      internship.workingDays = workingDays || internship.workingDays
+      internship.hoursPerDay = hoursPerDay || internship.hoursPerDay
+
+      await internship.save()
+    } else {
+      // Create new configuration
+      internship = new Internship({
+        userId: req.user.id,
+        requiredHours,
+        startDate,
+        estimatedEndDate,
+        workingDays: workingDays || {
+          monday: true,
+          tuesday: true,
+          wednesday: true,
+          thursday: true,
+          friday: true,
+          saturday: false,
+          sunday: false
+        },
+        hoursPerDay: hoursPerDay || 8
+      })
+
+      await internship.save()
+    }
+
+    res.json({
+      message: 'Internship configuration saved successfully',
+      internship
+    })
+  } catch (error) {
+    console.error(error.message)
+    res.status(500).send('Server error')
+  }
+})
+
+// Delete internship configuration
+router.delete('/config', auth, async (req, res) => {
+  try {
+    const internship = await Internship.findOneAndDelete({ userId: req.user.id })
+    
+    if (!internship) {
+      return res.status(404).json({ message: 'No internship configuration found' })
+    }
+
+    res.json({ message: 'Internship configuration deleted successfully' })
+  } catch (error) {
+    console.error(error.message)
+    res.status(500).send('Server error')
+  }
+})
+
+export default router
