@@ -11,10 +11,21 @@ dotenv.config()
 
 const app = express()
 const PORT = process.env.PORT || 5000
+let dbConnectionPromise
 
 // Middleware
 app.use(cors())
 app.use(express.json())
+
+app.use(async (req, res, next) => {
+  try {
+    await connectDB()
+    next()
+  } catch (error) {
+    console.error('Database initialization failed:', error)
+    res.status(500).json({ message: 'Database connection failed' })
+  }
+})
 
 // Routes
 app.use('/api', apiRoutes)
@@ -29,17 +40,29 @@ app.get('/api/test', (req, res) => {
 
 // Connect to MongoDB
 const connectDB = async () => {
+  if (mongoose.connection.readyState === 1) {
+    return mongoose.connection
+  }
+
+  if (dbConnectionPromise) {
+    return dbConnectionPromise
+  }
+
   try {
     if (process.env.MONGODB_URI) {
-      await mongoose.connect(process.env.MONGODB_URI)
+      dbConnectionPromise = mongoose.connect(process.env.MONGODB_URI)
+      await dbConnectionPromise
       console.log('MongoDB connected successfully')
+      return mongoose.connection
     } else {
       console.log('MongoDB URI not found in environment variables')
       console.log('Running without database connection')
+      return null
     }
   } catch (error) {
+    dbConnectionPromise = null
     console.error('MongoDB connection error:', error)
-    console.log('Running without database connection')
+    throw error
   }
 }
 
@@ -52,4 +75,8 @@ const startServer = async () => {
   })
 }
 
-startServer()
+if (!process.env.VERCEL) {
+  startServer()
+}
+
+export default app
