@@ -36,6 +36,7 @@ const Home = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [alertModal, setAlertModal] = useState({ isOpen: false, title: '', message: '' })
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [recordToDelete, setRecordToDelete] = useState(null)
   const [isGeneratingReport, setIsGeneratingReport] = useState(false)
   const [currentRecordsPage, setCurrentRecordsPage] = useState(1)
@@ -502,6 +503,10 @@ const Home = () => {
   }
 
   const handleLogout = () => {
+    setShowLogoutConfirm(true)
+  }
+
+  const confirmLogout = () => {
     localStorage.removeItem('token')
     navigate('/login')
   }
@@ -975,6 +980,42 @@ const Home = () => {
         title={alertModal.title}
         message={alertModal.message}
       />
+
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl border border-white/80 bg-white/95 shadow-[0_30px_70px_rgba(254,158,199,0.18)] transform transition-all duration-300 scale-100 animate-in slide-in-from-bottom-4">
+            <div className="p-6 sm:p-8">
+              <div className="flex items-center justify-center mb-6">
+                <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-red-600 rounded-full flex items-center justify-center shadow-lg">
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                </div>
+              </div>
+
+              <div className="text-center mb-8">
+                <h2 className="mb-3 text-2xl font-bold text-gray-900">Logout</h2>
+                <p className="text-lg text-gray-600">Are you sure you want to log out of your account?</p>
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
+                <button
+                  onClick={() => setShowLogoutConfirm(false)}
+                  className="order-2 w-full rounded-2xl bg-gray-100 px-6 py-3 text-lg font-semibold text-gray-700 transition-all duration-200 hover:bg-gray-200 sm:order-1 sm:flex-1"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmLogout}
+                  className="w-full sm:flex-1 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold py-3 px-6 rounded-2xl transition-all duration-200 transform hover:scale-[1.02] shadow-lg hover:shadow-xl flex items-center justify-center space-x-2 text-lg order-1 sm:order-2"
+                >
+                  <span>Yes, Logout</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
