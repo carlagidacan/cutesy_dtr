@@ -31,7 +31,8 @@ router.post('/config', auth, async (req, res) => {
       holidays,
       hoursPerDay,
       excludeLunchBreak,
-      lunchBreakDuration
+      lunchBreakDuration,
+      leaveAndAbsentDays
     } = req.body
 
     // Validate required fields
@@ -54,6 +55,7 @@ router.post('/config', auth, async (req, res) => {
       internship.hoursPerDay = hoursPerDay ?? internship.hoursPerDay
       internship.excludeLunchBreak = excludeLunchBreak !== undefined ? excludeLunchBreak : internship.excludeLunchBreak
       internship.lunchBreakDuration = lunchBreakDuration ?? internship.lunchBreakDuration
+      internship.leaveAndAbsentDays = leaveAndAbsentDays ?? internship.leaveAndAbsentDays
 
       await internship.save()
     } else {
@@ -88,7 +90,8 @@ router.post('/config', auth, async (req, res) => {
         },
         hoursPerDay: hoursPerDay ?? 8,
         excludeLunchBreak: excludeLunchBreak ?? false,
-        lunchBreakDuration: lunchBreakDuration ?? 1
+        lunchBreakDuration: lunchBreakDuration ?? 1,
+        leaveAndAbsentDays: leaveAndAbsentDays ?? 0
       })
 
       await internship.save()

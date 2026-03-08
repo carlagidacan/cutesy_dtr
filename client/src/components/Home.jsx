@@ -57,6 +57,7 @@ const Home = () => {
     november: 3,
     december: 4
   })
+  const [leaveAndAbsentDays, setLeaveAndAbsentDays] = useState(0)
   const navigate = useNavigate()
   const recordsPerPage = 5
 
@@ -158,6 +159,7 @@ const Home = () => {
       setExcludeLunchBreak(config.excludeLunchBreak || false)
       setLunchBreakDuration(config.lunchBreakDuration || 1)
       setHolidays(config.holidays || holidays)
+      setLeaveAndAbsentDays(config.leaveAndAbsentDays || 0)
       
       // Also save to localStorage as backup
       localStorage.setItem('requiredHours', config.requiredHours.toString())
@@ -166,6 +168,7 @@ const Home = () => {
       localStorage.setItem('excludeLunchBreak', config.excludeLunchBreak.toString())
       localStorage.setItem('lunchBreakDuration', config.lunchBreakDuration.toString())
       localStorage.setItem('holidays', JSON.stringify(config.holidays || holidays))
+      localStorage.setItem('leaveAndAbsentDays', config.leaveAndAbsentDays?.toString() || '0')
       localStorage.setItem('internshipConfigSaved', 'true')
 
       handleSetupAutoOpen()
@@ -192,6 +195,7 @@ const Home = () => {
     const savedExcludeLunchBreak = localStorage.getItem('excludeLunchBreak')
     const savedLunchBreakDuration = localStorage.getItem('lunchBreakDuration')
     const savedHolidays = localStorage.getItem('holidays')
+    const savedLeaveAndAbsentDays = localStorage.getItem('leaveAndAbsentDays')
     
     if (savedRequiredHours) {
       setRequiredHours(savedRequiredHours)
@@ -200,7 +204,8 @@ const Home = () => {
       setStartDate(savedStartDate)
       const days = savedWorkingDays ? JSON.parse(savedWorkingDays) : workingDays
       const holidaysData = savedHolidays ? JSON.parse(savedHolidays) : holidays
-      calculateEndDateWithProgress(savedRequiredHours, savedStartDate, days, totalHoursWorked, excludeLunchBreak, lunchBreakDuration, holidaysData)
+      const leaveDays = savedLeaveAndAbsentDays ? parseInt(savedLeaveAndAbsentDays) : 0
+      calculateEndDateWithProgress(savedRequiredHours, savedStartDate, days, totalHoursWorked, excludeLunchBreak, lunchBreakDuration, holidaysData, timeRecords, leaveDays)
     }
     if (savedWorkingDays) {
       setWorkingDays(JSON.parse(savedWorkingDays))
@@ -213,6 +218,9 @@ const Home = () => {
     }
     if (savedHolidays) {
       setHolidays(JSON.parse(savedHolidays))
+    }
+    if (savedLeaveAndAbsentDays) {
+      setLeaveAndAbsentDays(parseInt(savedLeaveAndAbsentDays))
     }
   }
 
@@ -245,9 +253,10 @@ const Home = () => {
         const effectiveRequiredHours = configOverride?.requiredHours?.toString() ?? requiredHours
         const effectiveStartDate = configOverride?.startDate?.split?.('T')?.[0] ?? startDate
         const effectiveWorkingDays = configOverride?.workingDays ?? workingDays
-        const effectiveExcludeLunchBreak = configOverride?.excludeLunchBreak ?? excludeLunchBreak
+        const effectiveexcludeLunchBreak = configOverride?.excludeLunchBreak ?? excludeLunchBreak
         const effectiveLunchBreakDuration = configOverride?.lunchBreakDuration ?? lunchBreakDuration
         const effectiveHolidays = configOverride?.holidays ?? holidays
+        const effectiveLeaveAndAbsentDays = configOverride?.leaveAndAbsentDays ?? leaveAndAbsentDays
         
         // Recalculate estimated end date based on progress
         if (effectiveRequiredHours && effectiveStartDate) {
@@ -256,10 +265,11 @@ const Home = () => {
             effectiveStartDate,
             effectiveWorkingDays,
             backendTotal,
-            effectiveExcludeLunchBreak,
+            effectiveexcludeLunchBreak,
             effectiveLunchBreakDuration,
             effectiveHolidays,
-            recordsResponse.data
+            recordsResponse.data,
+            effectiveLeaveAndAbsentDays
           )
         }
       } catch (totalError) {
@@ -269,9 +279,10 @@ const Home = () => {
         const effectiveRequiredHours = configOverride?.requiredHours?.toString() ?? requiredHours
         const effectiveStartDate = configOverride?.startDate?.split?.('T')?.[0] ?? startDate
         const effectiveWorkingDays = configOverride?.workingDays ?? workingDays
-        const effectiveExcludeLunchBreak = configOverride?.excludeLunchBreak ?? excludeLunchBreak
+        const effectiveexcludeLunchBreak = configOverride?.excludeLunchBreak ?? excludeLunchBreak
         const effectiveLunchBreakDuration = configOverride?.lunchBreakDuration ?? lunchBreakDuration
         const effectiveHolidays = configOverride?.holidays ?? holidays
+        const effectiveLeaveAndAbsentDays = configOverride?.leaveAndAbsentDays ?? leaveAndAbsentDays
         
         // Recalculate estimated end date based on progress
         if (effectiveRequiredHours && effectiveStartDate) {
@@ -280,10 +291,11 @@ const Home = () => {
             effectiveStartDate,
             effectiveWorkingDays,
             calculatedTotal,
-            effectiveExcludeLunchBreak,
+            effectiveexcludeLunchBreak,
             effectiveLunchBreakDuration,
             effectiveHolidays,
-            recordsResponse.data
+            recordsResponse.data,
+            effectiveLeaveAndAbsentDays
           )
         }
       }
@@ -424,7 +436,8 @@ const Home = () => {
         hoursPerDay: 8,
         excludeLunchBreak: excludeLunchBreak,
         lunchBreakDuration: parseFloat(lunchBreakDuration),
-        holidays: holidays
+        holidays: holidays,
+        leaveAndAbsentDays: parseInt(leaveAndAbsentDays) || 0
       }
 
       await axios.post('/api/internship/config', configData, {
@@ -438,10 +451,11 @@ const Home = () => {
       localStorage.setItem('excludeLunchBreak', excludeLunchBreak.toString())
       localStorage.setItem('lunchBreakDuration', lunchBreakDuration.toString())
       localStorage.setItem('holidays', JSON.stringify(holidays))
+      localStorage.setItem('leaveAndAbsentDays', (parseInt(leaveAndAbsentDays) || 0).toString())
       localStorage.setItem('internshipConfigSaved', 'true')
       
       // Update progress summary after successful save
-      calculateEndDateWithProgress(requiredHours, startDate, workingDays, totalHoursWorked, excludeLunchBreak, lunchBreakDuration, holidays)
+      calculateEndDateWithProgress(requiredHours, startDate, workingDays, totalHoursWorked, excludeLunchBreak, lunchBreakDuration, holidays, timeRecords, parseInt(leaveAndAbsentDays) || 0)
       
       setShowSuccessModal(true)
       setShowConfig(false)
@@ -452,9 +466,19 @@ const Home = () => {
     }
   }
 
+  const handleCancelConfig = () => {
+    setShowConfig(false)
+    loadFromLocalStorage()
+  }
+
   const handleRequiredHoursChange = (e) => {
     const hours = e.target.value
     setRequiredHours(hours)
+  }
+
+  const handleLeaveAndAbsentDaysChange = (e) => {
+    const days = Math.max(0, parseInt(e.target.value) || 0)
+    setLeaveAndAbsentDays(days)
   }
 
   const handleStartDateChange = (e) => {
@@ -639,7 +663,7 @@ const Home = () => {
     return totalHolidays
   }
 
-  const calculateEndDateWithProgress = (hours, start, selectedDays = workingDays, workedHours = 0, excludeLunch = excludeLunchBreak, lunchDuration = lunchBreakDuration, holidayConfig = holidays, records = timeRecords) => {
+  const calculateEndDateWithProgress = (hours, start, selectedDays = workingDays, workedHours = 0, excludeLunch = excludeLunchBreak, lunchDuration = lunchBreakDuration, holidayConfig = holidays, records = timeRecords, leaveDays = leaveAndAbsentDays) => {
     if (!hours || !start) {
       return
     }
@@ -648,7 +672,7 @@ const Home = () => {
     const remainingHours = Math.max(0, totalHours - Math.max(0, Number(workedHours || 0)))
     const baseHoursPerDay = 9
     const effectiveHoursPerDay = excludeLunch ? Math.max(0.1, baseHoursPerDay - lunchDuration) : baseHoursPerDay
-    const requiredDays = Math.ceil(remainingHours / effectiveHoursPerDay)
+    const requiredDays = Math.ceil(remainingHours / effectiveHoursPerDay) + Number(leaveDays || 0)
     const workingDayNumbers = []
 
     if (selectedDays.sunday) workingDayNumbers.push(0)
@@ -704,7 +728,7 @@ const Home = () => {
   }
 
   const calculateEndDate = (hours, start, selectedDays = workingDays) => {
-    calculateEndDateWithProgress(hours, start, selectedDays, totalHoursWorked, excludeLunchBreak, lunchBreakDuration, holidays)
+    calculateEndDateWithProgress(hours, start, selectedDays, totalHoursWorked, excludeLunchBreak, lunchBreakDuration, holidays, timeRecords, leaveAndAbsentDays)
   }
 
   const getRemainingHours = () => {
@@ -837,7 +861,7 @@ const Home = () => {
                   </div>
                 </div>
                 <button
-                  onClick={() => setShowConfig(false)}
+                  onClick={handleCancelConfig}
                   className="ml-2 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-[#F9F6C4] text-slate-600 transition-all duration-200 hover:scale-105 hover:bg-[#FE9EC7]/35 sm:ml-0 sm:h-10 sm:w-10"
                 >
                   <svg className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -877,6 +901,39 @@ const Home = () => {
                       className="block w-full rounded-2xl border-2 border-[#89D4FF]/40 px-5 py-4 text-lg text-gray-900 transition-all duration-200 group-hover:border-[#89D4FF] focus:border-[#44ACFF] focus:outline-none focus:ring-4 focus:ring-[#89D4FF]/30"
                     />
                   </div>
+                  
+                  <div className="group">
+                    <label className="block text-sm font-semibold text-gray-700 mb-3">
+                      Total Leave & Absent Days
+                    </label>
+                    <div className="flex items-center space-x-3">
+                      <button
+                        type="button"
+                        onClick={() => handleLeaveAndAbsentDaysChange({ target: { value: Math.max(0, leaveAndAbsentDays - 1) }})}
+                        className="flex h-12 w-12 items-center justify-center rounded-2xl border-2 border-[#89D4FF]/40 bg-[#F9F6C4]/30 text-gray-600 transition-all duration-200 hover:border-[#89D4FF] hover:bg-[#89D4FF]/20"
+                      >
+                        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4" />
+                        </svg>
+                      </button>
+                      <input
+                        type="number"
+                        min="0"
+                        value={leaveAndAbsentDays}
+                        onChange={handleLeaveAndAbsentDaysChange}
+                        className="block w-full rounded-2xl border-2 border-[#89D4FF]/40 px-5 py-4 text-center text-lg font-bold text-gray-900 transition-all duration-200 group-hover:border-[#89D4FF] focus:border-[#44ACFF] focus:outline-none focus:ring-4 focus:ring-[#89D4FF]/30"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleLeaveAndAbsentDaysChange({ target: { value: leaveAndAbsentDays + 1 }})}
+                        className="flex h-12 w-12 items-center justify-center rounded-2xl border-2 border-[#89D4FF]/40 bg-[#FE9EC7]/20 text-[#FE9EC7] transition-all duration-200 hover:border-[#FE9EC7] hover:bg-[#FE9EC7]/30"
+                      >
+                        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
                 </div>
                 
                 <div className="group">
@@ -893,6 +950,9 @@ const Home = () => {
                       }) : 'Not calculated yet'
                     }
                   </div>
+                  <p className="mt-2 text-xs text-amber-600/80 italic">
+                    * Make sure to save your configuration to see the updated Estimated End Date.
+                  </p>
                 </div>
                 
                 {/* Working Days Selection */}
