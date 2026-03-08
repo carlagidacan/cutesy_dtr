@@ -691,20 +691,27 @@ const Home = () => {
     const startDateValue = new Date(start)
     
     // Find the latest time record date
-    let latestRecordDate = new Date(startDateValue)
+    let lastRecordDate = null
     if (records && records.length > 0) {
       const recordDates = records.map(record => new Date(record.date))
-      latestRecordDate = new Date(Math.max(...recordDates))
+      lastRecordDate = new Date(Math.max(...recordDates))
     }
 
     if (requiredDays === 0) {
-      // Use the latest record date as the completion date, not today's date
-      setEstimatedEndDate(latestRecordDate.toISOString().split('T')[0])
+      // If no hours remaining, completion date is the latest record date or start date
+      const completionDate = lastRecordDate && lastRecordDate > startDateValue ? lastRecordDate : startDateValue
+      setEstimatedEndDate(completionDate.toISOString().split('T')[0])
       return
     }
     
-    // Use the latest of: start date or latest record date
-    const anchorDate = new Date(Math.max(startDateValue, latestRecordDate))
+    // Determine the anchor date (where we start counting future required days)
+    let anchorDate = new Date(startDateValue)
+    if (lastRecordDate && lastRecordDate >= startDateValue) {
+      // Start counting from the day NEXT TO the latest record date to avoid double counting
+      anchorDate = new Date(lastRecordDate)
+      anchorDate.setDate(anchorDate.getDate() + 1)
+    }
+
     const currentDate = new Date(anchorDate)
     currentDate.setHours(0, 0, 0, 0)
 
