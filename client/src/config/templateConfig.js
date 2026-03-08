@@ -33,6 +33,25 @@ const TEMPLATE_CONFIG = {
 			maxWidth: 520
 		},
 
+		previousTotal: {
+			x: 290,
+			y: 1423,
+			align: 'center',
+			maxWidth: 120
+		},
+		totalThisPeriod: {
+			x: 570,
+			y: 1423,
+			align: 'center',
+			maxWidth: 120
+		},
+		totalHoursServed: {
+			x: 1050,
+			y: 1423,
+			align: 'center',
+			maxWidth: 140
+		},
+
 		table: {
 			startY: 453,
 			rowHeight: 42,

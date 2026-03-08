@@ -122,10 +122,22 @@ const getRecordsForReport = (timeRecords) => {
   return sortedRecords
 }
 
-const renderReportPage = (doc, layoutMetrics, user, records) => {
+const renderReportPage = (doc, layoutMetrics, user, records, previousTotal = 0) => {
   applyFont(doc, TEMPLATE_CONFIG.fonts.normal)
   drawText(doc, user?.name || TEMPLATE_CONFIG.placeholders.empty, TEMPLATE_CONFIG.coordinates.name, layoutMetrics)
   drawText(doc, user?.company || TEMPLATE_CONFIG.placeholders.empty, TEMPLATE_CONFIG.coordinates.company, layoutMetrics)
+
+  // Calculate total for this page's records only
+  const totalThisPeriod = records.reduce((total, record) => {
+    return total + (parseFloat(record.hours) || 0)
+  }, 0)
+  
+  const totalHoursServed = previousTotal + totalThisPeriod
+  
+  // Render total hours fields
+  drawText(doc, formatReportHours(previousTotal), TEMPLATE_CONFIG.coordinates.previousTotal, layoutMetrics)
+  drawText(doc, formatReportHours(totalThisPeriod), TEMPLATE_CONFIG.coordinates.totalThisPeriod, layoutMetrics)
+  drawText(doc, formatReportHours(totalHoursServed), TEMPLATE_CONFIG.coordinates.totalHoursServed, layoutMetrics)
 
   applyFont(doc, TEMPLATE_CONFIG.fonts.table)
   const rowStep = TEMPLATE_CONFIG.coordinates.table.rowHeight + (TEMPLATE_CONFIG.coordinates.table.rowGap || 0)
@@ -142,7 +154,7 @@ const renderReportPage = (doc, layoutMetrics, user, records) => {
   })
 }
 
-export const generateAttendanceReport = async ({ user, timeRecords, totalHoursWorked }) => {
+export const generateAttendanceReport = async ({ user, timeRecords, totalHoursWorked, previousTotal = 0 }) => {
   const doc = new jsPDF(
     TEMPLATE_CONFIG.page.orientation,
     TEMPLATE_CONFIG.page.unit,
@@ -163,6 +175,8 @@ export const generateAttendanceReport = async ({ user, timeRecords, totalHoursWo
   const pageChunks = chunkRecords(recordsForReport, TEMPLATE_CONFIG.coordinates.table.maxRows)
   const pages = pageChunks.length > 0 ? pageChunks : [[]]
 
+  let cumulativePreviousTotal = previousTotal // Start with external previous total
+
   pages.forEach((pageRecords, pageIndex) => {
     if (pageIndex > 0) {
       doc.addPage(
@@ -173,7 +187,13 @@ export const generateAttendanceReport = async ({ user, timeRecords, totalHoursWo
     }
 
     const layoutMetrics = addTemplateBackground(doc, templateImage)
-    renderReportPage(doc, layoutMetrics, user, pageRecords)
+    renderReportPage(doc, layoutMetrics, user, pageRecords, cumulativePreviousTotal)
+    
+    // Update cumulative total for next page: add current page's hours to previous total
+    const currentPageTotal = pageRecords.reduce((total, record) => {
+      return total + (parseFloat(record.hours) || 0)
+    }, 0)
+    cumulativePreviousTotal += currentPageTotal
   })
 
   const currentDate = new Date().toISOString().split('T')[0]

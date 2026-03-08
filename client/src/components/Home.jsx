@@ -565,7 +565,9 @@ const Home = () => {
 
     try {
       setIsGeneratingReport(true)
-      await generateAttendanceReport({ user, timeRecords, totalHoursWorked })
+      // TODO: Implement logic to retrieve previous total from database/localStorage
+      const previousTotal = 0 // This could be retrieved from historical data
+      await generateAttendanceReport({ user, timeRecords, totalHoursWorked, previousTotal })
       setMessage({ text: 'PDF report downloaded successfully!', type: 'success' })
     } catch (error) {
       console.error('Error generating PDF:', error)
