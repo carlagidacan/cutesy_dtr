@@ -1,5 +1,13 @@
 import mongoose from 'mongoose'
 
+const normalizeEmail = (value) => {
+  if (typeof value !== 'string') {
+    return value
+  }
+
+  return value.trim().toLowerCase()
+}
+
 const userSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -16,7 +24,9 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true,
     unique: true,
-    lowercase: true
+    trim: true,
+    lowercase: true,
+    set: normalizeEmail
   },
   password: {
     type: String,

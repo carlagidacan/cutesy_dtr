@@ -6,26 +6,44 @@ import auth from '../middleware/auth.js'
 
 const router = express.Router()
 
+const normalizeEmail = (value = '') => value.trim().toLowerCase()
+
+const isDuplicateEmailError = (error) => error?.code === 11000 && error?.keyPattern?.email
+
 // Register user
 router.post('/signup', async (req, res) => {
   try {
     const { name, company, email, password } = req.body
 
+    if (!name?.trim()) {
+      return res.status(400).json({ message: 'Full name is required' })
+    }
+
     if (!company?.trim()) {
       return res.status(400).json({ message: 'Internship company is required' })
     }
 
+    if (!email?.trim()) {
+      return res.status(400).json({ message: 'Email is required' })
+    }
+
+    if (!password || password.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters long' })
+    }
+
+    const normalizedEmail = normalizeEmail(email)
+
     // Check if user already exists
-    let user = await User.findOne({ email })
+    let user = await User.findOne({ email: normalizedEmail })
     if (user) {
-      return res.status(400).json({ message: 'User already exists' })
+      return res.status(400).json({ message: 'Email already exists' })
     }
 
     // Create new user
     user = new User({
-      name,
+      name: name.trim(),
       company: company.trim(),
-      email,
+      email: normalizedEmail,
       password
     })
 
@@ -58,6 +76,10 @@ router.post('/signup', async (req, res) => {
       }
     })
   } catch (error) {
+    if (isDuplicateEmailError(error)) {
+      return res.status(400).json({ message: 'Email already exists' })
+    }
+
     console.error(error.message)
     res.status(500).send('Server error')
   }
@@ -68,8 +90,14 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body
 
+    if (!email?.trim() || !password) {
+      return res.status(400).json({ message: 'Email and password are required' })
+    }
+
+    const normalizedEmail = normalizeEmail(email)
+
     // Check if user exists
-    const user = await User.findOne({ email })
+    const user = await User.findOne({ email: normalizedEmail })
     if (!user) {
       return res.status(400).json({ message: 'Invalid credentials' })
     }
@@ -145,14 +173,14 @@ router.put('/profile', auth, async (req, res) => {
       return res.status(400).json({ message: 'Password must be at least 6 characters long' })
     }
 
-    const normalizedEmail = email.trim().toLowerCase()
+    const normalizedEmail = normalizeEmail(email)
     const existingUser = await User.findOne({
       email: normalizedEmail,
       _id: { $ne: req.user.id }
     })
 
     if (existingUser) {
-      return res.status(400).json({ message: 'Email is already in use' })
+      return res.status(400).json({ message: 'Email already exists' })
     }
 
     const user = await User.findById(req.user.id)
@@ -184,6 +212,10 @@ router.put('/profile', auth, async (req, res) => {
       }
     })
   } catch (error) {
+    if (isDuplicateEmailError(error)) {
+      return res.status(400).json({ message: 'Email already exists' })
+    }
+
     console.error(error.message)
     res.status(500).send('Server error')
   }
