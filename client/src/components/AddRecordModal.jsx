@@ -8,7 +8,9 @@ const AddRecordModal = ({
   setRecordForm, 
   onSubmit,
   calculateHoursFromTimes,
-  onValidationError
+  onValidationError,
+  excludeLunchBreak = false,
+  lunchBreakDuration = 1
 }) => {
   if (!isOpen) return null
 
@@ -119,9 +121,16 @@ const AddRecordModal = ({
                   <svg className="w-4 h-4 text-[#44ACFF] sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <p className="text-base font-bold text-slate-900 sm:text-lg">
-                    Total time: {formatHoursAndMinutes(calculateHoursFromTimes(recordForm.clockInTime, recordForm.clockOutTime))}
-                  </p>
+                  <div className="text-center">
+                    <p className="text-base font-bold text-slate-900 sm:text-lg">
+                      Total time: {formatHoursAndMinutes(calculateHoursFromTimes(recordForm.clockInTime, recordForm.clockOutTime))}
+                    </p>
+                    {excludeLunchBreak && (
+                      <p className="text-xs text-slate-600 mt-1">
+                        (Lunch break of {formatHoursAndMinutes(lunchBreakDuration)} excluded)
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
             )}

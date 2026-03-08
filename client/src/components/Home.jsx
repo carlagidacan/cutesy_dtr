@@ -40,6 +40,8 @@ const Home = () => {
   const [recordToDelete, setRecordToDelete] = useState(null)
   const [isGeneratingReport, setIsGeneratingReport] = useState(false)
   const [currentRecordsPage, setCurrentRecordsPage] = useState(1)
+  const [excludeLunchBreak, setExcludeLunchBreak] = useState(false)
+  const [lunchBreakDuration, setLunchBreakDuration] = useState(1)
   const navigate = useNavigate()
   const recordsPerPage = 5
 
@@ -138,11 +140,15 @@ const Home = () => {
       setStartDate(config.startDate.split('T')[0]) // Convert to YYYY-MM-DD format
       setEstimatedEndDate(config.estimatedEndDate.split('T')[0])
       setWorkingDays(config.workingDays)
+      setExcludeLunchBreak(config.excludeLunchBreak || false)
+      setLunchBreakDuration(config.lunchBreakDuration || 1)
       
       // Also save to localStorage as backup
       localStorage.setItem('requiredHours', config.requiredHours.toString())
       localStorage.setItem('startDate', config.startDate.split('T')[0])
       localStorage.setItem('workingDays', JSON.stringify(config.workingDays))
+      localStorage.setItem('excludeLunchBreak', config.excludeLunchBreak.toString())
+      localStorage.setItem('lunchBreakDuration', config.lunchBreakDuration.toString())
       localStorage.setItem('internshipConfigSaved', 'true')
 
       handleSetupAutoOpen()
@@ -164,6 +170,8 @@ const Home = () => {
     const savedRequiredHours = localStorage.getItem('requiredHours')
     const savedStartDate = localStorage.getItem('startDate')
     const savedWorkingDays = localStorage.getItem('workingDays')
+    const savedExcludeLunchBreak = localStorage.getItem('excludeLunchBreak')
+    const savedLunchBreakDuration = localStorage.getItem('lunchBreakDuration')
     
     if (savedRequiredHours) {
       setRequiredHours(savedRequiredHours)
@@ -175,6 +183,12 @@ const Home = () => {
     }
     if (savedWorkingDays) {
       setWorkingDays(JSON.parse(savedWorkingDays))
+    }
+    if (savedExcludeLunchBreak !== null) {
+      setExcludeLunchBreak(savedExcludeLunchBreak === 'true')
+    }
+    if (savedLunchBreakDuration) {
+      setLunchBreakDuration(parseFloat(savedLunchBreakDuration))
     }
   }
 
@@ -349,7 +363,9 @@ const Home = () => {
         startDate: startDate,
         estimatedEndDate: estimatedEndDate,
         workingDays: workingDays,
-        hoursPerDay: 8
+        hoursPerDay: 8,
+        excludeLunchBreak: excludeLunchBreak,
+        lunchBreakDuration: parseFloat(lunchBreakDuration)
       }
 
       await axios.post('/api/internship/config', configData, {
@@ -360,6 +376,8 @@ const Home = () => {
       localStorage.setItem('requiredHours', requiredHours)
       localStorage.setItem('startDate', startDate)
       localStorage.setItem('workingDays', JSON.stringify(workingDays))
+      localStorage.setItem('excludeLunchBreak', excludeLunchBreak.toString())
+      localStorage.setItem('lunchBreakDuration', lunchBreakDuration.toString())
       localStorage.setItem('internshipConfigSaved', 'true')
       
       setShowSuccessModal(true)
@@ -389,6 +407,18 @@ const Home = () => {
     calculateEndDate(requiredHours, startDate, updatedDays)
   }
 
+  const handleExcludeLunchBreakChange = () => {
+    const newValue = !excludeLunchBreak
+    setExcludeLunchBreak(newValue)
+    calculateEndDate(requiredHours, startDate, workingDays)
+  }
+
+  const handleLunchBreakDurationChange = (e) => {
+    const duration = parseFloat(e.target.value)
+    setLunchBreakDuration(duration)
+    calculateEndDate(requiredHours, startDate, workingDays)
+  }
+
   const handleSave = () => {
     if (requiredHours && startDate) {
       saveInternshipConfig()
@@ -409,7 +439,14 @@ const Home = () => {
     }
     
     const diffInMs = endTime - startTime
-    return Math.round((diffInMs / (1000 * 60 * 60)) * 100) / 100 // Round to 2 decimal places
+    let hours = Math.round((diffInMs / (1000 * 60 * 60)) * 100) / 100 // Round to 2 decimal places
+    
+    // Exclude lunch break if enabled
+    if (excludeLunchBreak && hours > lunchBreakDuration) {
+      hours -= lunchBreakDuration
+    }
+    
+    return Math.max(0, hours) // Ensure non-negative hours
   }
 
   const formatTime = (date) => {
@@ -441,8 +478,9 @@ const Home = () => {
 
     const totalHours = Math.max(0, Number(hours))
     const remainingHours = Math.max(0, totalHours - Math.max(0, Number(workedHours || 0)))
-    const hoursPerDay = 8
-    const requiredDays = Math.ceil(remainingHours / hoursPerDay)
+    const baseHoursPerDay = 8
+    const effectiveHoursPerDay = excludeLunchBreak ? Math.max(0.1, baseHoursPerDay - lunchBreakDuration) : baseHoursPerDay
+    const requiredDays = Math.ceil(remainingHours / effectiveHoursPerDay)
     const workingDayNumbers = []
 
     if (selectedDays.sunday) workingDayNumbers.push(0)
@@ -597,6 +635,8 @@ const Home = () => {
         onSubmit={editingRecord ? updateTimeRecord : addTimeRecord}
         calculateHoursFromTimes={calculateHoursFromTimes}
         onValidationError={openAlertModal}
+        excludeLunchBreak={excludeLunchBreak}
+        lunchBreakDuration={lunchBreakDuration}
       />
 
       {/* Simplified Setup Modal */}
@@ -719,6 +759,70 @@ const Home = () => {
                     Select your working days. End date calculation will be based on these days only.
                   </p>
                 </div>
+                
+                {/* Lunch Break Configuration */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-4">
+                    Lunch Break Settings
+                  </label>
+                  
+                  <div className="space-y-4">
+                    {/* Exclude lunch break toggle */}
+                    <div className="flex items-center space-x-4">
+                      <label className="flex items-center cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={excludeLunchBreak}
+                          onChange={handleExcludeLunchBreakChange}
+                          className="sr-only"
+                        />
+                        <div className={`relative w-12 h-6 rounded-full transition-all duration-200 ${
+                          excludeLunchBreak
+                            ? 'bg-gradient-to-r from-[#44ACFF] to-[#FE9EC7]'
+                            : 'bg-gray-300 group-hover:bg-gray-400'
+                        }`}>
+                          <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-200 ${
+                            excludeLunchBreak ? 'translate-x-6' : 'translate-x-0'
+                          }`}></div>
+                        </div>
+                        <span className="ml-3 text-sm font-medium text-gray-700">
+                          Exclude lunch break from daily hours
+                        </span>
+                      </label>
+                    </div>
+                    
+                    {/* Lunch break duration input - only shown when enabled */}
+                    {excludeLunchBreak && (
+                      <div className="group">
+                        <label className="block text-xs font-medium text-gray-600 mb-2">
+                          Lunch Break Duration
+                        </label>
+                        <div className="relative max-w-xs">
+                          <select
+                            value={lunchBreakDuration}
+                            onChange={handleLunchBreakDurationChange}
+                            className="block w-full rounded-xl border-2 border-[#89D4FF]/40 py-3 pl-4 pr-12 text-base text-gray-900 transition-all duration-200 group-hover:border-[#89D4FF] focus:border-[#44ACFF] focus:outline-none focus:ring-4 focus:ring-[#89D4FF]/30"
+                          >
+                            <option value="0.25">15 minutes</option>
+                            <option value="0.5">30 minutes</option>
+                            <option value="0.75">45 minutes</option>
+                            <option value="1">1 hour</option>
+                            <option value="1.25">1 hour 15 minutes</option>
+                            <option value="1.5">1 hour 30 minutes</option>
+                            <option value="2">2 hours</option>
+                          </select>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <p className="mt-4 rounded-xl border border-[#FE9EC7]/35 bg-gradient-to-r from-[#F9F6C4]/70 to-[#FE9EC7]/25 p-3 text-center text-sm text-slate-600">
+                    {excludeLunchBreak 
+                      ? `Daily effective hours: ${8 - lunchBreakDuration}h (8h - ${lunchBreakDuration}h lunch break)`
+                      : 'Full 8-hour workday will be counted (no lunch break deduction)'
+                    }
+                  </p>
+                </div>
               </div>
               
               <div className="mt-6">
@@ -737,8 +841,8 @@ const Home = () => {
                 <div className="mt-4 rounded-xl border border-[#89D4FF]/40 bg-gradient-to-r from-[#89D4FF]/12 to-[#FE9EC7]/12 p-4">
                   <h4 className="mb-2 text-sm font-semibold text-[#44ACFF]">Configuration Summary</h4>
                   <p className="mb-2 text-sm text-slate-700">
-                    <span className="font-medium">Duration:</span> Based on 8 hours per day on selected working days. 
-                    You'll need approximately <span className="font-semibold">{Math.ceil(requiredHours / 8)} working days</span> to complete <span className="font-semibold">{requiredHours} hours</span>.
+                    <span className="font-medium">Duration:</span> Based on {excludeLunchBreak ? 8 - lunchBreakDuration : 8} effective hours per day on selected working days{excludeLunchBreak ? ` (excluding ${lunchBreakDuration}h lunch break)` : ''}. 
+                    You'll need approximately <span className="font-semibold">{Math.ceil(requiredHours / (excludeLunchBreak ? 8 - lunchBreakDuration : 8))} working days</span> to complete <span className="font-semibold">{requiredHours} hours</span>.
                   </p>
                   <div className="flex flex-wrap gap-1">
                     <span className="rounded-md bg-white px-2 py-1 text-xs font-medium text-[#44ACFF]">Working:</span>

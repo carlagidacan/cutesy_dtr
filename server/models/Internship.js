@@ -34,6 +34,16 @@ const internshipSchema = new mongoose.Schema({
     default: 8,
     min: 1,
     max: 12
+  },
+  excludeLunchBreak: {
+    type: Boolean,
+    default: false
+  },
+  lunchBreakDuration: {
+    type: Number,
+    default: 1,
+    min: 0.25,
+    max: 2
   }
 }, {
   timestamps: true
