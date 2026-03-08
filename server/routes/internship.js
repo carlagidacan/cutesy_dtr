@@ -23,7 +23,16 @@ router.get('/config', auth, async (req, res) => {
 // Create or update internship configuration
 router.post('/config', auth, async (req, res) => {
   try {
-    const { requiredHours, startDate, estimatedEndDate, workingDays, hoursPerDay, excludeLunchBreak, lunchBreakDuration } = req.body
+    const {
+      requiredHours,
+      startDate,
+      estimatedEndDate,
+      workingDays,
+      holidays,
+      hoursPerDay,
+      excludeLunchBreak,
+      lunchBreakDuration
+    } = req.body
 
     // Validate required fields
     if (!requiredHours || !startDate || !estimatedEndDate) {
@@ -41,9 +50,10 @@ router.post('/config', auth, async (req, res) => {
       internship.startDate = startDate
       internship.estimatedEndDate = estimatedEndDate
       internship.workingDays = workingDays || internship.workingDays
-      internship.hoursPerDay = hoursPerDay || internship.hoursPerDay
+      internship.holidays = holidays || internship.holidays
+      internship.hoursPerDay = hoursPerDay ?? internship.hoursPerDay
       internship.excludeLunchBreak = excludeLunchBreak !== undefined ? excludeLunchBreak : internship.excludeLunchBreak
-      internship.lunchBreakDuration = lunchBreakDuration || internship.lunchBreakDuration
+      internship.lunchBreakDuration = lunchBreakDuration ?? internship.lunchBreakDuration
 
       await internship.save()
     } else {
@@ -62,9 +72,23 @@ router.post('/config', auth, async (req, res) => {
           saturday: false,
           sunday: false
         },
-        hoursPerDay: hoursPerDay || 8,
-        excludeLunchBreak: excludeLunchBreak || false,
-        lunchBreakDuration: lunchBreakDuration || 1
+        holidays: holidays || {
+          january: 1,
+          february: 1,
+          march: 0,
+          april: 4,
+          may: 1,
+          june: 1,
+          july: 0,
+          august: 2,
+          september: 0,
+          october: 0,
+          november: 3,
+          december: 4
+        },
+        hoursPerDay: hoursPerDay ?? 8,
+        excludeLunchBreak: excludeLunchBreak ?? false,
+        lunchBreakDuration: lunchBreakDuration ?? 1
       })
 
       await internship.save()

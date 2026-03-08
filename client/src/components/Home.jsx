@@ -38,10 +38,25 @@ const Home = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [recordToDelete, setRecordToDelete] = useState(null)
+  const [deleteConfirmationDate, setDeleteConfirmationDate] = useState('')
   const [isGeneratingReport, setIsGeneratingReport] = useState(false)
   const [currentRecordsPage, setCurrentRecordsPage] = useState(1)
   const [excludeLunchBreak, setExcludeLunchBreak] = useState(false)
   const [lunchBreakDuration, setLunchBreakDuration] = useState(1)
+  const [holidays, setHolidays] = useState({
+    january: 1,
+    february: 1,
+    march: 0,
+    april: 4,
+    may: 1,
+    june: 1,
+    july: 0,
+    august: 2,
+    september: 0,
+    october: 0,
+    november: 3,
+    december: 4
+  })
   const navigate = useNavigate()
   const recordsPerPage = 5
 
@@ -114,9 +129,9 @@ const Home = () => {
       setMessage('Welcome to your OJT Time Record!')
       
       // Fetch internship configuration after getting user data
-      await fetchInternshipConfig()
+      const internshipConfig = await fetchInternshipConfig()
       // Fetch time records after getting user data
-      await fetchTimeRecords()
+      await fetchTimeRecords(internshipConfig)
     } catch (error) {
       setMessage('Error loading user data')
       console.error('Error:', error)
@@ -142,6 +157,7 @@ const Home = () => {
       setWorkingDays(config.workingDays)
       setExcludeLunchBreak(config.excludeLunchBreak || false)
       setLunchBreakDuration(config.lunchBreakDuration || 1)
+      setHolidays(config.holidays || holidays)
       
       // Also save to localStorage as backup
       localStorage.setItem('requiredHours', config.requiredHours.toString())
@@ -149,9 +165,11 @@ const Home = () => {
       localStorage.setItem('workingDays', JSON.stringify(config.workingDays))
       localStorage.setItem('excludeLunchBreak', config.excludeLunchBreak.toString())
       localStorage.setItem('lunchBreakDuration', config.lunchBreakDuration.toString())
+      localStorage.setItem('holidays', JSON.stringify(config.holidays || holidays))
       localStorage.setItem('internshipConfigSaved', 'true')
 
       handleSetupAutoOpen()
+      return config
       
     } catch (error) {
       console.error('Error fetching internship config:', error)
@@ -163,6 +181,7 @@ const Home = () => {
 
       // Fallback to localStorage if database fetch fails
       loadFromLocalStorage()
+      return null
     }
   }
 
@@ -172,6 +191,7 @@ const Home = () => {
     const savedWorkingDays = localStorage.getItem('workingDays')
     const savedExcludeLunchBreak = localStorage.getItem('excludeLunchBreak')
     const savedLunchBreakDuration = localStorage.getItem('lunchBreakDuration')
+    const savedHolidays = localStorage.getItem('holidays')
     
     if (savedRequiredHours) {
       setRequiredHours(savedRequiredHours)
@@ -179,7 +199,8 @@ const Home = () => {
     if (savedStartDate) {
       setStartDate(savedStartDate)
       const days = savedWorkingDays ? JSON.parse(savedWorkingDays) : workingDays
-      calculateEndDate(savedRequiredHours, savedStartDate, days)
+      const holidaysData = savedHolidays ? JSON.parse(savedHolidays) : holidays
+      calculateEndDateWithProgress(savedRequiredHours, savedStartDate, days, totalHoursWorked, excludeLunchBreak, lunchBreakDuration, holidaysData)
     }
     if (savedWorkingDays) {
       setWorkingDays(JSON.parse(savedWorkingDays))
@@ -190,9 +211,12 @@ const Home = () => {
     if (savedLunchBreakDuration) {
       setLunchBreakDuration(parseFloat(savedLunchBreakDuration))
     }
+    if (savedHolidays) {
+      setHolidays(JSON.parse(savedHolidays))
+    }
   }
 
-  const fetchTimeRecords = async () => {
+  const fetchTimeRecords = async (configOverride = null) => {
     try {
       const token = localStorage.getItem('token')
       const recordsResponse = await axios.get('/api/records', {
@@ -217,18 +241,50 @@ const Home = () => {
         console.log('Backend total response:', totalResponse.data)
         const backendTotal = totalResponse.data.totalHours || totalResponse.data.total || calculatedTotal
         setTotalHoursWorked(backendTotal)
+
+        const effectiveRequiredHours = configOverride?.requiredHours?.toString() ?? requiredHours
+        const effectiveStartDate = configOverride?.startDate?.split?.('T')?.[0] ?? startDate
+        const effectiveWorkingDays = configOverride?.workingDays ?? workingDays
+        const effectiveExcludeLunchBreak = configOverride?.excludeLunchBreak ?? excludeLunchBreak
+        const effectiveLunchBreakDuration = configOverride?.lunchBreakDuration ?? lunchBreakDuration
+        const effectiveHolidays = configOverride?.holidays ?? holidays
         
         // Recalculate estimated end date based on progress
-        if (requiredHours && startDate) {
-          calculateEndDateWithProgress(requiredHours, startDate, workingDays, backendTotal)
+        if (effectiveRequiredHours && effectiveStartDate) {
+          calculateEndDateWithProgress(
+            effectiveRequiredHours,
+            effectiveStartDate,
+            effectiveWorkingDays,
+            backendTotal,
+            effectiveExcludeLunchBreak,
+            effectiveLunchBreakDuration,
+            effectiveHolidays,
+            recordsResponse.data
+          )
         }
       } catch (totalError) {
         console.warn('Backend total endpoint failed, using calculated total:', totalError)
         setTotalHoursWorked(calculatedTotal)
+
+        const effectiveRequiredHours = configOverride?.requiredHours?.toString() ?? requiredHours
+        const effectiveStartDate = configOverride?.startDate?.split?.('T')?.[0] ?? startDate
+        const effectiveWorkingDays = configOverride?.workingDays ?? workingDays
+        const effectiveExcludeLunchBreak = configOverride?.excludeLunchBreak ?? excludeLunchBreak
+        const effectiveLunchBreakDuration = configOverride?.lunchBreakDuration ?? lunchBreakDuration
+        const effectiveHolidays = configOverride?.holidays ?? holidays
         
         // Recalculate estimated end date based on progress
-        if (requiredHours && startDate) {
-          calculateEndDateWithProgress(requiredHours, startDate, workingDays, calculatedTotal)
+        if (effectiveRequiredHours && effectiveStartDate) {
+          calculateEndDateWithProgress(
+            effectiveRequiredHours,
+            effectiveStartDate,
+            effectiveWorkingDays,
+            calculatedTotal,
+            effectiveExcludeLunchBreak,
+            effectiveLunchBreakDuration,
+            effectiveHolidays,
+            recordsResponse.data
+          )
         }
       }
       
@@ -303,6 +359,7 @@ const Home = () => {
 
   const deleteTimeRecord = async (recordId) => {
     setRecordToDelete(recordId)
+    setDeleteConfirmationDate('')
     setShowDeleteConfirm(true)
   }
 
@@ -324,6 +381,7 @@ const Home = () => {
     } finally {
       setShowDeleteConfirm(false)
       setRecordToDelete(null)
+      setDeleteConfirmationDate('')
     }
   }
 
@@ -365,7 +423,8 @@ const Home = () => {
         workingDays: workingDays,
         hoursPerDay: 8,
         excludeLunchBreak: excludeLunchBreak,
-        lunchBreakDuration: parseFloat(lunchBreakDuration)
+        lunchBreakDuration: parseFloat(lunchBreakDuration),
+        holidays: holidays
       }
 
       await axios.post('/api/internship/config', configData, {
@@ -378,7 +437,11 @@ const Home = () => {
       localStorage.setItem('workingDays', JSON.stringify(workingDays))
       localStorage.setItem('excludeLunchBreak', excludeLunchBreak.toString())
       localStorage.setItem('lunchBreakDuration', lunchBreakDuration.toString())
+      localStorage.setItem('holidays', JSON.stringify(holidays))
       localStorage.setItem('internshipConfigSaved', 'true')
+      
+      // Update progress summary after successful save
+      calculateEndDateWithProgress(requiredHours, startDate, workingDays, totalHoursWorked, excludeLunchBreak, lunchBreakDuration, holidays)
       
       setShowSuccessModal(true)
       setShowConfig(false)
@@ -392,31 +455,39 @@ const Home = () => {
   const handleRequiredHoursChange = (e) => {
     const hours = e.target.value
     setRequiredHours(hours)
-    calculateEndDate(hours, startDate, workingDays)
   }
 
   const handleStartDateChange = (e) => {
     const date = e.target.value
     setStartDate(date)
-    calculateEndDate(requiredHours, date, workingDays)
   }
 
   const handleWorkingDayChange = (day) => {
     const updatedDays = { ...workingDays, [day]: !workingDays[day] }
     setWorkingDays(updatedDays)
-    calculateEndDate(requiredHours, startDate, updatedDays)
   }
 
   const handleExcludeLunchBreakChange = () => {
     const newValue = !excludeLunchBreak
     setExcludeLunchBreak(newValue)
-    calculateEndDate(requiredHours, startDate, workingDays)
   }
 
   const handleLunchBreakDurationChange = (e) => {
     const duration = parseFloat(e.target.value)
     setLunchBreakDuration(duration)
-    calculateEndDate(requiredHours, startDate, workingDays)
+  }
+
+  const handleHolidayChange = (month) => {
+    const philippineHolidays = {
+      january: 1, february: 1, march: 0, april: 4, may: 1, june: 1,
+      july: 0, august: 2, september: 0, october: 0, november: 3, december: 4
+    }
+    
+    const updatedHolidays = { 
+      ...holidays, 
+      [month]: holidays[month] > 0 ? 0 : philippineHolidays[month]
+    }
+    setHolidays(updatedHolidays)
   }
 
   const handleSave = () => {
@@ -467,19 +538,116 @@ const Home = () => {
     })
   }
 
+  const getMonthsInInternshipPeriod = () => {
+    if (!startDate || !estimatedEndDate) return []
+    
+    const start = new Date(startDate)
+    const end = new Date(estimatedEndDate)
+    
+    const months = []
+    const monthNames = [
+      'january', 'february', 'march', 'april', 'may', 'june',
+      'july', 'august', 'september', 'october', 'november', 'december'
+    ]
+    
+    // Get the first full month after start date
+    let currentMonth = start.getMonth()
+    let currentYear = start.getFullYear()
+    
+    // If we're not at the beginning of the month, start from next month
+    if (start.getDate() > 1) {
+      currentMonth++
+      if (currentMonth > 11) {
+        currentMonth = 0
+        currentYear++
+      }
+    }
+    
+    // Include every month from the first eligible month through the month of the end date.
+    while (
+      currentYear < end.getFullYear() ||
+      (currentYear === end.getFullYear() && currentMonth <= end.getMonth())
+    ) {
+      months.push({
+        key: monthNames[currentMonth],
+        date: new Date(currentYear, currentMonth, 1)
+      })
+      
+      currentMonth++
+      if (currentMonth > 11) {
+        currentMonth = 0
+        currentYear++
+      }
+    }
+    
+    return months
+  }
+
   const calculateWorkedTime = () => {
     return `${totalHoursWorked}h`
   }
 
-  const calculateEndDateWithProgress = (hours, start, selectedDays = workingDays, workedHours = 0) => {
+  const countHolidaysBetweenDates = (startDate, endDate, holidayConfig) => {
+    if (!startDate || !endDate || !holidayConfig) return 0
+    
+    const start = new Date(startDate)
+    const end = new Date(endDate)
+    
+    // If dates are the same, no holidays in between
+    if (start.getTime() === end.getTime()) return 0
+    
+    // Ensure start is before end
+    if (start > end) return 0
+    
+    let totalHolidays = 0
+    
+    // Count holidays for each month in the range
+    let currentDate = new Date(start)
+    while (currentDate <= end) {
+      const month = currentDate.getMonth() // 0-11
+      const monthNames = [
+        'january', 'february', 'march', 'april', 'may', 'june',
+        'july', 'august', 'september', 'october', 'november', 'december'
+      ]
+      
+      const monthName = monthNames[month]
+      const holidaysInMonth = holidayConfig[monthName] || 0
+      
+      if (holidaysInMonth > 0) {
+        // Check if we need full month or partial month
+        const monthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
+        const monthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
+        
+        const rangeStart = new Date(Math.max(start.getTime(), monthStart.getTime()))
+        const rangeEnd = new Date(Math.min(end.getTime(), monthEnd.getTime()))
+        
+        if (rangeStart <= rangeEnd) {
+          // Calculate proportion of month covered
+          const totalDaysInMonth = monthEnd.getDate()
+          const daysInRange = Math.ceil((rangeEnd.getTime() - rangeStart.getTime()) / (1000 * 60 * 60 * 24)) + 1
+          const proportion = daysInRange / totalDaysInMonth
+          
+          // Add proportional holidays (rounded to nearest whole number)
+          totalHolidays += Math.round(holidaysInMonth * proportion)
+        }
+      }
+      
+      // Move to next month
+      currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1)
+    }
+    
+    return totalHolidays
+  }
+
+  const calculateEndDateWithProgress = (hours, start, selectedDays = workingDays, workedHours = 0, excludeLunch = excludeLunchBreak, lunchDuration = lunchBreakDuration, holidayConfig = holidays, records = timeRecords) => {
     if (!hours || !start) {
       return
     }
 
     const totalHours = Math.max(0, Number(hours))
     const remainingHours = Math.max(0, totalHours - Math.max(0, Number(workedHours || 0)))
-    const baseHoursPerDay = 8
-    const effectiveHoursPerDay = excludeLunchBreak ? Math.max(0.1, baseHoursPerDay - lunchBreakDuration) : baseHoursPerDay
+    const baseHoursPerDay = 9
+    const effectiveHoursPerDay = excludeLunch ? Math.max(0.1, baseHoursPerDay - lunchDuration) : baseHoursPerDay
     const requiredDays = Math.ceil(remainingHours / effectiveHoursPerDay)
     const workingDayNumbers = []
 
@@ -496,16 +664,23 @@ const Home = () => {
       return
     }
 
-    if (requiredDays === 0) {
-      const completedDate = new Date()
-      completedDate.setHours(0, 0, 0, 0)
-      setEstimatedEndDate(completedDate.toISOString().split('T')[0])
-      return
+    const startDateValue = new Date(start)
+    
+    // Find the latest time record date
+    let latestRecordDate = new Date(startDateValue)
+    if (records && records.length > 0) {
+      const recordDates = records.map(record => new Date(record.date))
+      latestRecordDate = new Date(Math.max(...recordDates))
     }
 
-    const startDateValue = new Date(start)
-    const today = new Date()
-    const anchorDate = workedHours > 0 && today > startDateValue ? today : startDateValue
+    if (requiredDays === 0) {
+      // Use the latest record date as the completion date, not today's date
+      setEstimatedEndDate(latestRecordDate.toISOString().split('T')[0])
+      return
+    }
+    
+    // Use the latest of: start date or latest record date
+    const anchorDate = new Date(Math.max(startDateValue, latestRecordDate))
     const currentDate = new Date(anchorDate)
     currentDate.setHours(0, 0, 0, 0)
 
@@ -514,20 +689,22 @@ const Home = () => {
     while (scheduledDays < requiredDays) {
       if (workingDayNumbers.includes(currentDate.getDay())) {
         scheduledDays++
+        if (scheduledDays === requiredDays) {
+          break
+        }
       }
-
-      if (scheduledDays === requiredDays) {
-        break
-      }
-
       currentDate.setDate(currentDate.getDate() + 1)
     }
+
+    // Add holidays to the end date
+    const holidaysToAdd = countHolidaysBetweenDates(anchorDate, currentDate, holidayConfig)
+    currentDate.setDate(currentDate.getDate() + holidaysToAdd)
 
     setEstimatedEndDate(currentDate.toISOString().split('T')[0])
   }
 
   const calculateEndDate = (hours, start, selectedDays = workingDays) => {
-    calculateEndDateWithProgress(hours, start, selectedDays, totalHoursWorked)
+    calculateEndDateWithProgress(hours, start, selectedDays, totalHoursWorked, excludeLunchBreak, lunchBreakDuration, holidays)
   }
 
   const getRemainingHours = () => {
@@ -820,10 +997,135 @@ const Home = () => {
                   
                   <p className="mt-4 rounded-xl border border-[#FE9EC7]/35 bg-gradient-to-r from-[#F9F6C4]/70 to-[#FE9EC7]/25 p-3 text-center text-sm text-slate-600">
                     {excludeLunchBreak 
-                      ? `Daily effective hours: ${8 - lunchBreakDuration}h (8h - ${lunchBreakDuration}h lunch break)`
-                      : 'Full 8-hour workday will be counted (no lunch break deduction)'
+                      ? `Daily effective hours: ${9 - lunchBreakDuration}h (9h - ${lunchBreakDuration}h lunch break)`
+                      : 'Full 9-hour workday will be counted (no lunch break deduction)'
                     }
                   </p>
+                </div>
+                
+                {/* Holiday Configuration */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-4">
+                    Philippine Holidays During Internship
+                  </label>
+                  
+                  {getMonthsInInternshipPeriod().length === 0 ? (
+                    <div className="text-center py-8 rounded-xl border border-[#89D4FF]/40 bg-[#89D4FF]/10">
+                      <p className="text-sm text-slate-600 mb-2">Complete your start date and required hours first</p>
+                      <p className="text-xs text-slate-500">Holiday configuration will appear once your internship period is defined</p>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Quick presets */}
+                      <div className="mb-4">
+                        <p className="text-xs font-medium text-gray-600 mb-2">Quick Actions:</p>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updatedHolidays = { ...holidays }
+                              getMonthsInInternshipPeriod().forEach(month => {
+                                const philippineCount = { january: 1, february: 1, march: 0, april: 4, may: 1, june: 1, july: 0, august: 2, september: 0, october: 0, november: 3, december: 4 }[month.key]
+                                updatedHolidays[month.key] = philippineCount
+                              })
+                              setHolidays(updatedHolidays)
+                            }}
+                            className="px-3 py-1 text-xs bg-[#89D4FF]/20 text-[#44ACFF] rounded-full hover:bg-[#89D4FF]/30 transition-colors duration-200"
+                          >
+                            Enable All Philippines Holidays
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updatedHolidays = { ...holidays }
+                              getMonthsInInternshipPeriod().forEach(month => {
+                                updatedHolidays[month.key] = 0
+                              })
+                              setHolidays(updatedHolidays)
+                            }}
+                            className="px-3 py-1 text-xs bg-gray-200 text-gray-600 rounded-full hover:bg-gray-300 transition-colors duration-200"
+                          >
+                            Disable All
+                          </button>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {getMonthsInInternshipPeriod().map((month) => {
+                          const monthData = {
+                            january: { label: 'January', holidays: ['New Year\'s Day'] },
+                            february: { label: 'February', holidays: ['Chinese New Year'] },
+                            march: { label: 'March', holidays: [] },
+                            april: { label: 'April', holidays: ['Maundy Thursday', 'Good Friday', 'Black Saturday', 'Araw ng Kagitingan'] },
+                            may: { label: 'May', holidays: ['Labor Day'] },
+                            june: { label: 'June', holidays: ['Independence Day'] },
+                            july: { label: 'July', holidays: [] },
+                            august: { label: 'August', holidays: ['Ninoy Aquino Day', 'National Heroes Day'] },
+                            september: { label: 'September', holidays: [] },
+                            october: { label: 'October', holidays: [] },
+                            november: { label: 'November', holidays: ['All Saints\' Day', 'All Souls\' Day', 'Bonifacio Day'] },
+                            december: { label: 'December', holidays: ['Immaculate Conception', 'Christmas Eve', 'Christmas Day', 'New Year\'s Eve'] }
+                          }[month.key]
+                          
+                          const philippineCount = { january: 1, february: 1, march: 0, april: 4, may: 1, june: 1, july: 0, august: 2, september: 0, october: 0, november: 3, december: 4 }[month.key]
+                          const isEnabled = holidays[month.key] > 0
+                          
+                          return (
+                            <div key={month.key} className="group">
+                              <div className={`rounded-xl border-2 p-4 transition-all duration-200 cursor-pointer ${
+                                isEnabled 
+                                  ? 'border-[#44ACFF] bg-gradient-to-br from-[#44ACFF]/10 to-[#FE9EC7]/10 shadow-md'
+                                  : 'border-[#89D4FF]/30 bg-white hover:border-[#89D4FF] hover:shadow-sm'
+                              }`}
+                              onClick={() => handleHolidayChange(month.key)}
+                              >
+                                <div className="flex items-center justify-between mb-3">
+                                  <span className="text-2xl">{monthData.icon}</span>
+                                  <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold transition-colors duration-200 ${
+                                    isEnabled 
+                                      ? 'bg-[#44ACFF] text-white'
+                                      : 'bg-gray-200 text-gray-400'
+                                  }`}>
+                                    {holidays[month.key]}
+                                  </div>
+                                </div>
+                                
+                                <div className="text-center">
+                                  <p className="text-sm font-semibold text-gray-800 mb-1">{monthData.label}</p>
+                                  <p className={`text-xs transition-colors duration-200 ${
+                                    isEnabled ? 'text-[#44ACFF] font-medium' : 'text-gray-400'
+                                  }`}>
+                                    {philippineCount === 0 ? 'No holidays' : philippineCount === 1 ? '1 holiday' : `${philippineCount} holidays`}
+                                  </p>
+                                  
+                                  {philippineCount > 0 && (
+                                    <div className="mt-2 text-xs text-gray-500">
+                                      {monthData.holidays.slice(0, 2).map((holiday, idx) => (
+                                        <div key={idx}>{holiday}</div>
+                                      ))}
+                                      {monthData.holidays.length > 2 && (
+                                        <div>+{monthData.holidays.length - 2} more</div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                      
+                      <div className="mt-4 rounded-xl border border-[#89D4FF]/40 bg-[#89D4FF]/10 p-3">
+                        <div className="text-sm text-slate-600 text-center">
+                          <span className="font-medium">Total holidays during internship:</span> <span className="font-bold text-[#44ACFF]">{Object.entries(holidays).filter(([month, count]) => getMonthsInInternshipPeriod().some(m => m.key === month) && count > 0).reduce((sum, [, count]) => sum + count, 0)} days</span>
+                        </div>
+                      </div>
+                      
+                      <p className="mt-3 text-center text-xs text-slate-500">
+                        Only months within your internship period ({startDate ? new Date(startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'start'} - {estimatedEndDate ? new Date(estimatedEndDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'end'}) are shown.
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
               
@@ -843,8 +1145,10 @@ const Home = () => {
                 <div className="mt-4 rounded-xl border border-[#89D4FF]/40 bg-gradient-to-r from-[#89D4FF]/12 to-[#FE9EC7]/12 p-4">
                   <h4 className="mb-2 text-sm font-semibold text-[#44ACFF]">Configuration Summary</h4>
                   <p className="mb-2 text-sm text-slate-700">
-                    <span className="font-medium">Duration:</span> Based on {excludeLunchBreak ? 8 - lunchBreakDuration : 8} effective hours per day on selected working days{excludeLunchBreak ? ` (excluding ${lunchBreakDuration}h lunch break)` : ''}. 
-                    You'll need approximately <span className="font-semibold">{Math.ceil(requiredHours / (excludeLunchBreak ? 8 - lunchBreakDuration : 8))} working days</span> to complete <span className="font-semibold">{requiredHours} hours</span>.
+                    <span className="font-medium">Duration:</span> Based on {excludeLunchBreak ? 9 - lunchBreakDuration : 9} effective hours per day on selected working days{excludeLunchBreak ? ` (9h work - ${lunchBreakDuration}h lunch break)` : ''}. 
+                    You'll need approximately <span className="font-semibold">{Math.ceil(requiredHours / (excludeLunchBreak ? 9 - lunchBreakDuration : 9))} working days</span> to complete <span className="font-semibold">{requiredHours} hours</span>.
+                    <br />
+                    <span className="font-medium">Holidays:</span> {Object.entries(holidays).filter(([month, count]) => count > 0 && getMonthsInInternshipPeriod().some(m => m.key === month)).reduce((sum, [month, count]) => sum + count, 0)} Philippine holiday{Object.entries(holidays).filter(([month, count]) => count > 0 && getMonthsInInternshipPeriod().some(m => m.key === month)).reduce((sum, [month, count]) => sum + count, 0) === 1 ? '' : 's'} during internship period.
                   </p>
                   <div className="flex flex-wrap gap-1">
                     <span className="rounded-md bg-white px-2 py-1 text-xs font-medium text-[#44ACFF]">Working:</span>
@@ -1138,7 +1442,43 @@ const Home = () => {
               
               <div className="text-center mb-8">
                 <h2 className="text-2xl font-bold text-gray-900 mb-3">Delete Time Record</h2>
-                <p className="text-gray-600 text-lg">Are you sure you want to delete this record? This action cannot be undone.</p>
+                <p className="text-gray-600 text-lg mb-4">This action cannot be undone.</p>
+                
+                {(() => {
+                  const recordToDeleteObj = timeRecords.find(record => record._id === recordToDelete)
+                  if (!recordToDeleteObj) return null
+                  
+                  const formattedDate = new Date(recordToDeleteObj.date).toLocaleDateString('en-US', {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric'
+                  })
+                  
+                  const isDateMatch = deleteConfirmationDate.trim().toLowerCase() === formattedDate.toLowerCase()
+                  
+                  return (
+                    <>
+                      <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl">
+                        <p className="text-sm font-medium text-red-800 mb-2">
+                          You are about to delete the record for <span className="font-bold">{formattedDate}</span>
+                        </p>
+                        <p className="text-sm text-red-600">
+                          Type the date exactly as shown above to confirm deletion:
+                        </p>
+                      </div>
+                      
+                      <input
+                        type="text"
+                        value={deleteConfirmationDate}
+                        onChange={(e) => setDeleteConfirmationDate(e.target.value)}
+                        placeholder={`Type: ${formattedDate}`}
+                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl text-center font-medium focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-200 transition-colors duration-200"
+                        autoFocus
+                      />
+                    </>
+                  )
+                })()
+                }
               </div>
               
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
@@ -1146,20 +1486,42 @@ const Home = () => {
                   onClick={() => {
                     setShowDeleteConfirm(false)
                     setRecordToDelete(null)
+                    setDeleteConfirmationDate('')
                   }}
                   className="w-full sm:flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 px-6 rounded-2xl transition-all duration-200 text-lg order-2 sm:order-1"
                 >
                   Cancel
                 </button>
-                <button
-                  onClick={confirmDeleteRecord}
-                  className="w-full sm:flex-1 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold py-3 px-6 rounded-2xl transition-all duration-200 transform hover:scale-[1.02] shadow-lg hover:shadow-xl flex items-center justify-center space-x-2 text-lg order-1 sm:order-2"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                  <span>Delete Record</span>
-                </button>
+                {(() => {
+                  const recordToDeleteObj = timeRecords.find(record => record._id === recordToDelete)
+                  if (!recordToDeleteObj) return null
+                  
+                  const formattedDate = new Date(recordToDeleteObj.date).toLocaleDateString('en-US', {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric'
+                  })
+                  
+                  const isDateMatch = deleteConfirmationDate.trim().toLowerCase() === formattedDate.toLowerCase()
+                  
+                  return (
+                    <button
+                      onClick={confirmDeleteRecord}
+                      disabled={!isDateMatch}
+                      className={`w-full sm:flex-1 font-semibold py-3 px-6 rounded-2xl transition-all duration-200 transform shadow-lg flex items-center justify-center space-x-2 text-lg order-1 sm:order-2 ${
+                        isDateMatch
+                          ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white hover:scale-[1.02] hover:shadow-xl cursor-pointer'
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      <span>Delete Record</span>
+                    </button>
+                  )
+                })()
+                }
               </div>
             </div>
           </div>

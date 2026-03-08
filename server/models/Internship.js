@@ -29,6 +29,20 @@ const internshipSchema = new mongoose.Schema({
     saturday: { type: Boolean, default: false },
     sunday: { type: Boolean, default: false }
   },
+  holidays: {
+    january: { type: Number, default: 1, min: 0 },
+    february: { type: Number, default: 1, min: 0 },
+    march: { type: Number, default: 0, min: 0 },
+    april: { type: Number, default: 4, min: 0 },
+    may: { type: Number, default: 1, min: 0 },
+    june: { type: Number, default: 1, min: 0 },
+    july: { type: Number, default: 0, min: 0 },
+    august: { type: Number, default: 2, min: 0 },
+    september: { type: Number, default: 0, min: 0 },
+    october: { type: Number, default: 0, min: 0 },
+    november: { type: Number, default: 3, min: 0 },
+    december: { type: Number, default: 4, min: 0 }
+  },
   hoursPerDay: {
     type: Number,
     default: 8,
