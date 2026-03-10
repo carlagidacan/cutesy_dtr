@@ -41,6 +41,8 @@ const Home = () => {
   const [deleteConfirmationDate, setDeleteConfirmationDate] = useState('')
   const [isGeneratingReport, setIsGeneratingReport] = useState(false)
   const [currentRecordsPage, setCurrentRecordsPage] = useState(1)
+  const [selectedRecords, setSelectedRecords] = useState([])
+  const [isDeletingMultiple, setIsDeletingMultiple] = useState(false)
   const [excludeLunchBreak, setExcludeLunchBreak] = useState(false)
   const [lunchBreakDuration, setLunchBreakDuration] = useState(1)
   const [holidays, setHolidays] = useState({
@@ -58,15 +60,18 @@ const Home = () => {
     december: 4
   })
   const [leaveAndAbsentDays, setLeaveAndAbsentDays] = useState(0)
+  const [leaveAndAbsentDates, setLeaveAndAbsentDates] = useState([])
+  const [newLeaveDate, setNewLeaveDate] = useState('')
+  const [activeSetupTab, setActiveSetupTab] = useState('basic')
   const navigate = useNavigate()
   const recordsPerPage = 5
 
   const formatHoursAndMinutes = (decimalHours) => {
     if (decimalHours === 0) return '0h 0m'
-    
+
     const hours = Math.floor(decimalHours)
     const minutes = Math.round((decimalHours - hours) * 60)
-    
+
     if (hours === 0) {
       return `${minutes}m`
     } else if (minutes === 0) {
@@ -96,14 +101,14 @@ const Home = () => {
 
   useEffect(() => {
     const token = localStorage.getItem('token')
-    
+
     if (!token) {
       navigate('/login')
       return
     }
 
     fetchUserData()
-    
+
     // Update time every second
     const timeInterval = setInterval(() => {
       setCurrentTime(new Date())
@@ -128,7 +133,7 @@ const Home = () => {
       })
       setUser(response.data)
       setMessage('Welcome to your OJT Time Record!')
-      
+
       // Fetch internship configuration after getting user data
       const internshipConfig = await fetchInternshipConfig()
       // Fetch time records after getting user data
@@ -150,7 +155,7 @@ const Home = () => {
       const response = await axios.get('/api/internship/config', {
         headers: { Authorization: `Bearer ${token}` }
       })
-      
+
       const config = response.data
       setRequiredHours(config.requiredHours.toString())
       setStartDate(config.startDate.split('T')[0]) // Convert to YYYY-MM-DD format
@@ -160,7 +165,7 @@ const Home = () => {
       setLunchBreakDuration(config.lunchBreakDuration || 1)
       setHolidays(config.holidays || holidays)
       setLeaveAndAbsentDays(config.leaveAndAbsentDays || 0)
-      
+
       // Also save to localStorage as backup
       localStorage.setItem('requiredHours', config.requiredHours.toString())
       localStorage.setItem('startDate', config.startDate.split('T')[0])
@@ -169,11 +174,13 @@ const Home = () => {
       localStorage.setItem('lunchBreakDuration', config.lunchBreakDuration.toString())
       localStorage.setItem('holidays', JSON.stringify(config.holidays || holidays))
       localStorage.setItem('leaveAndAbsentDays', config.leaveAndAbsentDays?.toString() || '0')
+      localStorage.setItem('leaveAndAbsentDates', JSON.stringify(config.leaveAndAbsentDates || []))
+      setLeaveAndAbsentDates(config.leaveAndAbsentDates || [])
       localStorage.setItem('internshipConfigSaved', 'true')
 
       handleSetupAutoOpen()
       return config
-      
+
     } catch (error) {
       console.error('Error fetching internship config:', error)
       const openedFromSignup = handleSetupAutoOpen()
@@ -196,7 +203,7 @@ const Home = () => {
     const savedLunchBreakDuration = localStorage.getItem('lunchBreakDuration')
     const savedHolidays = localStorage.getItem('holidays')
     const savedLeaveAndAbsentDays = localStorage.getItem('leaveAndAbsentDays')
-    
+
     if (savedRequiredHours) {
       setRequiredHours(savedRequiredHours)
     }
@@ -219,8 +226,15 @@ const Home = () => {
     if (savedHolidays) {
       setHolidays(JSON.parse(savedHolidays))
     }
+
+    // We keep leaveAndAbsentDays for backwards compatibility
     if (savedLeaveAndAbsentDays) {
       setLeaveAndAbsentDays(parseInt(savedLeaveAndAbsentDays))
+    }
+
+    const savedLeaveAndAbsentDates = localStorage.getItem('leaveAndAbsentDates')
+    if (savedLeaveAndAbsentDates) {
+      setLeaveAndAbsentDates(JSON.parse(savedLeaveAndAbsentDates))
     }
   }
 
@@ -230,17 +244,17 @@ const Home = () => {
       const recordsResponse = await axios.get('/api/records', {
         headers: { Authorization: `Bearer ${token}` }
       })
-      
+
       setTimeRecords(recordsResponse.data)
-      
+
       // Calculate total hours from the records directly as fallback
       const calculatedTotal = recordsResponse.data.reduce((total, record) => {
         return total + parseFloat(record.hours || 0)
       }, 0)
-      
+
       console.log('Calculated total hours:', calculatedTotal)
       console.log('Records:', recordsResponse.data)
-      
+
       // Try to get total from backend, but use calculated total as fallback
       try {
         const totalResponse = await axios.get('/api/records/total', {
@@ -257,7 +271,7 @@ const Home = () => {
         const effectiveLunchBreakDuration = configOverride?.lunchBreakDuration ?? lunchBreakDuration
         const effectiveHolidays = configOverride?.holidays ?? holidays
         const effectiveLeaveAndAbsentDays = configOverride?.leaveAndAbsentDays ?? leaveAndAbsentDays
-        
+
         // Recalculate estimated end date based on progress
         if (effectiveRequiredHours && effectiveStartDate) {
           calculateEndDateWithProgress(
@@ -283,7 +297,7 @@ const Home = () => {
         const effectiveLunchBreakDuration = configOverride?.lunchBreakDuration ?? lunchBreakDuration
         const effectiveHolidays = configOverride?.holidays ?? holidays
         const effectiveLeaveAndAbsentDays = configOverride?.leaveAndAbsentDays ?? leaveAndAbsentDays
-        
+
         // Recalculate estimated end date based on progress
         if (effectiveRequiredHours && effectiveStartDate) {
           calculateEndDateWithProgress(
@@ -299,7 +313,7 @@ const Home = () => {
           )
         }
       }
-      
+
     } catch (error) {
       console.error('Error fetching time records:', error)
       openAlertModal('Error loading time records. Please try again.')
@@ -314,12 +328,12 @@ const Home = () => {
         ...recordForm,
         hours: hours
       }
-      
+
       const response = await axios.post('/api/records', recordData, {
         headers: { Authorization: `Bearer ${token}` }
       })
-      
-      
+
+
       setShowAddRecord(false)
       setRecordForm({
         date: new Date().toISOString().split('T')[0],
@@ -327,10 +341,10 @@ const Home = () => {
         clockOutTime: '',
         description: ''
       })
-      
+
       // Refresh records
       await fetchTimeRecords()
-      
+
     } catch (error) {
       console.error('Error adding time record:', error)
       openAlertModal(error.response?.data?.message || 'Error adding record. Please try again.')
@@ -345,12 +359,12 @@ const Home = () => {
         ...recordForm,
         hours: hours
       }
-      
+
       await axios.put(`/api/records/${editingRecord._id}`, recordData, {
         headers: { Authorization: `Bearer ${token}` }
       })
-      
-      
+
+
       setShowAddRecord(false)
       setEditingRecord(null)
       setRecordForm({
@@ -359,10 +373,10 @@ const Home = () => {
         clockOutTime: '',
         description: ''
       })
-      
+
       // Refresh records
       await fetchTimeRecords()
-      
+
     } catch (error) {
       console.error('Error updating time record:', error)
       openAlertModal(error.response?.data?.message || 'Error updating record. Please try again.')
@@ -371,29 +385,73 @@ const Home = () => {
 
   const deleteTimeRecord = async (recordId) => {
     setRecordToDelete(recordId)
+    setIsDeletingMultiple(false)
+    setDeleteConfirmationDate('')
+    setShowDeleteConfirm(true)
+  }
+
+  const handleDeleteSelected = () => {
+    if (selectedRecords.length === 0) return
+    setIsDeletingMultiple(true)
     setDeleteConfirmationDate('')
     setShowDeleteConfirm(true)
   }
 
   const confirmDeleteRecord = async () => {
-    if (!recordToDelete) return
-    
     try {
       const token = localStorage.getItem('token')
-      await axios.delete(`/api/records/${recordToDelete}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      
+
+      if (isDeletingMultiple) {
+        await axios.delete('/api/records/batch', {
+          headers: { Authorization: `Bearer ${token}` },
+          data: { recordIds: selectedRecords }
+        })
+        setSelectedRecords([])
+      } else {
+        if (!recordToDelete) return
+        await axios.delete(`/api/records/${recordToDelete}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+      }
+
       // Refresh records
       await fetchTimeRecords()
-      
+
     } catch (error) {
-      console.error('Error deleting time record:', error)
-      openAlertModal('Error deleting record. Please try again.')
+      console.error('Error deleting time record(s):', error)
+      openAlertModal('Error deleting record(s). Please try again.')
     } finally {
       setShowDeleteConfirm(false)
       setRecordToDelete(null)
+      setIsDeletingMultiple(false)
       setDeleteConfirmationDate('')
+    }
+  }
+
+  const toggleRecordSelection = (recordId) => {
+    setSelectedRecords(prev =>
+      prev.includes(recordId)
+        ? prev.filter(id => id !== recordId)
+        : [...prev, recordId]
+    )
+  }
+
+  const toggleAllRecordsSelection = () => {
+    if (selectedRecords.length === paginatedRecords.length) {
+      // If all visible are selected, deselect them
+      setSelectedRecords(prev =>
+        prev.filter(id => !paginatedRecords.some(r => r._id === id))
+      )
+    } else {
+      // Select all visible records that aren't already selected
+      const visibleIds = paginatedRecords.map(r => r._id)
+      setSelectedRecords(prev => {
+        const newSelection = [...prev]
+        visibleIds.forEach(id => {
+          if (!newSelection.includes(id)) newSelection.push(id)
+        })
+        return newSelection
+      })
     }
   }
 
@@ -415,7 +473,7 @@ const Home = () => {
     const fallbackClockInTime = record.clockInTime || defaultStart
     const startTime = new Date(`2000-01-01T${fallbackClockInTime}:00`)
     const endTime = new Date(startTime.getTime() + hours * 60 * 60 * 1000)
-    
+
     setRecordForm({
       date: record.date.split('T')[0],
       clockInTime: record.clockInTime || defaultStart,
@@ -437,13 +495,14 @@ const Home = () => {
         excludeLunchBreak: excludeLunchBreak,
         lunchBreakDuration: parseFloat(lunchBreakDuration),
         holidays: holidays,
-        leaveAndAbsentDays: parseInt(leaveAndAbsentDays) || 0
+        leaveAndAbsentDays: parseInt(leaveAndAbsentDays) || 0,
+        leaveAndAbsentDates: leaveAndAbsentDates
       }
 
       await axios.post('/api/internship/config', configData, {
         headers: { Authorization: `Bearer ${token}` }
       })
-      
+
       // Also save to localStorage as backup
       localStorage.setItem('requiredHours', requiredHours)
       localStorage.setItem('startDate', startDate)
@@ -452,14 +511,15 @@ const Home = () => {
       localStorage.setItem('lunchBreakDuration', lunchBreakDuration.toString())
       localStorage.setItem('holidays', JSON.stringify(holidays))
       localStorage.setItem('leaveAndAbsentDays', (parseInt(leaveAndAbsentDays) || 0).toString())
+      localStorage.setItem('leaveAndAbsentDates', JSON.stringify(leaveAndAbsentDates))
       localStorage.setItem('internshipConfigSaved', 'true')
-      
+
       // Update progress summary after successful save
-      calculateEndDateWithProgress(requiredHours, startDate, workingDays, totalHoursWorked, excludeLunchBreak, lunchBreakDuration, holidays, timeRecords, parseInt(leaveAndAbsentDays) || 0)
-      
+      calculateEndDateWithProgress(requiredHours, startDate, workingDays, totalHoursWorked, excludeLunchBreak, lunchBreakDuration, holidays, timeRecords, leaveAndAbsentDates)
+
       setShowSuccessModal(true)
       setShowConfig(false)
-      
+
     } catch (error) {
       console.error('Error saving internship config:', error)
       openAlertModal('Error saving configuration. Please try again.')
@@ -479,6 +539,18 @@ const Home = () => {
   const handleLeaveAndAbsentDaysChange = (e) => {
     const days = Math.max(0, parseInt(e.target.value) || 0)
     setLeaveAndAbsentDays(days)
+  }
+
+  const handleAddLeaveDate = () => {
+    if (!newLeaveDate) return
+    if (!leaveAndAbsentDates.includes(newLeaveDate)) {
+      setLeaveAndAbsentDates([...leaveAndAbsentDates, newLeaveDate].sort())
+    }
+    setNewLeaveDate('')
+  }
+
+  const handleRemoveLeaveDate = (dateToRemove) => {
+    setLeaveAndAbsentDates(leaveAndAbsentDates.filter(date => date !== dateToRemove))
   }
 
   const handleStartDateChange = (e) => {
@@ -506,9 +578,9 @@ const Home = () => {
       january: 1, february: 1, march: 0, april: 4, may: 1, june: 1,
       july: 0, august: 2, september: 0, october: 0, november: 3, december: 4
     }
-    
-    const updatedHolidays = { 
-      ...holidays, 
+
+    const updatedHolidays = {
+      ...holidays,
       [month]: holidays[month] > 0 ? 0 : philippineHolidays[month]
     }
     setHolidays(updatedHolidays)
@@ -524,30 +596,30 @@ const Home = () => {
 
   const calculateHoursFromTimes = (clockIn, clockOut) => {
     if (!clockIn || !clockOut) return 0
-    
+
     const startTime = new Date(`2000-01-01T${clockIn}:00`)
     const endTime = new Date(`2000-01-01T${clockOut}:00`)
-    
+
     // Handle overnight shifts
     if (endTime <= startTime) {
       endTime.setDate(endTime.getDate() + 1)
     }
-    
+
     const diffInMs = endTime - startTime
     let hours = Math.round((diffInMs / (1000 * 60 * 60)) * 100) / 100 // Round to 2 decimal places
-    
+
     // Exclude lunch break if enabled
     if (excludeLunchBreak && hours > lunchBreakDuration) {
       hours -= lunchBreakDuration
     }
-    
+
     return Math.max(0, hours) // Ensure non-negative hours
   }
 
   const formatTime = (date) => {
     return date.toLocaleTimeString('en-US', {
       hour: '2-digit',
-      minute: '2-digit', 
+      minute: '2-digit',
       second: '2-digit',
       hour12: true
     })
@@ -564,20 +636,20 @@ const Home = () => {
 
   const getMonthsInInternshipPeriod = () => {
     if (!startDate || !estimatedEndDate) return []
-    
+
     const start = new Date(startDate)
     const end = new Date(estimatedEndDate)
-    
+
     const months = []
     const monthNames = [
       'january', 'february', 'march', 'april', 'may', 'june',
       'july', 'august', 'september', 'october', 'november', 'december'
     ]
-    
+
     // Get the first full month after start date
     let currentMonth = start.getMonth()
     let currentYear = start.getFullYear()
-    
+
     // If we're not at the beginning of the month, start from next month
     if (start.getDate() > 1) {
       currentMonth++
@@ -586,7 +658,7 @@ const Home = () => {
         currentYear++
       }
     }
-    
+
     // Include every month from the first eligible month through the month of the end date.
     while (
       currentYear < end.getFullYear() ||
@@ -596,14 +668,14 @@ const Home = () => {
         key: monthNames[currentMonth],
         date: new Date(currentYear, currentMonth, 1)
       })
-      
+
       currentMonth++
       if (currentMonth > 11) {
         currentMonth = 0
         currentYear++
       }
     }
-    
+
     return months
   }
 
@@ -613,18 +685,18 @@ const Home = () => {
 
   const countHolidaysBetweenDates = (startDate, endDate, holidayConfig) => {
     if (!startDate || !endDate || !holidayConfig) return 0
-    
+
     const start = new Date(startDate)
     const end = new Date(endDate)
-    
+
     // If dates are the same, no holidays in between
     if (start.getTime() === end.getTime()) return 0
-    
+
     // Ensure start is before end
     if (start > end) return 0
-    
+
     let totalHolidays = 0
-    
+
     // Count holidays for each month in the range
     let currentDate = new Date(start)
     while (currentDate <= end) {
@@ -633,37 +705,42 @@ const Home = () => {
         'january', 'february', 'march', 'april', 'may', 'june',
         'july', 'august', 'september', 'october', 'november', 'december'
       ]
-      
+
       const monthName = monthNames[month]
       const holidaysInMonth = holidayConfig[monthName] || 0
-      
+
       if (holidaysInMonth > 0) {
         // Check if we need full month or partial month
         const monthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
         const monthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
-        
+
         const rangeStart = new Date(Math.max(start.getTime(), monthStart.getTime()))
         const rangeEnd = new Date(Math.min(end.getTime(), monthEnd.getTime()))
-        
+
         if (rangeStart <= rangeEnd) {
           // Calculate proportion of month covered
           const totalDaysInMonth = monthEnd.getDate()
           const daysInRange = Math.ceil((rangeEnd.getTime() - rangeStart.getTime()) / (1000 * 60 * 60 * 24)) + 1
           const proportion = daysInRange / totalDaysInMonth
-          
+
           // Add proportional holidays (rounded to nearest whole number)
           totalHolidays += Math.round(holidaysInMonth * proportion)
         }
       }
-      
+
       // Move to next month
       currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1)
     }
-    
+
     return totalHolidays
   }
 
-  const calculateEndDateWithProgress = (hours, start, selectedDays = workingDays, workedHours = 0, excludeLunch = excludeLunchBreak, lunchDuration = lunchBreakDuration, holidayConfig = holidays, records = timeRecords, leaveDays = leaveAndAbsentDays) => {
+  const formatLocalYYYYMMDD = (date) => {
+    const d = new Date(date)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+
+  const calculateEndDateWithProgress = (hours, start, selectedDays = workingDays, workedHours = 0, excludeLunch = excludeLunchBreak, lunchDuration = lunchBreakDuration, holidayConfig = holidays, records = timeRecords, leaveDatesArray = leaveAndAbsentDates) => {
     if (!hours || !start) {
       return
     }
@@ -672,7 +749,7 @@ const Home = () => {
     const remainingHours = Math.max(0, totalHours - Math.max(0, Number(workedHours || 0)))
     const baseHoursPerDay = 9
     const effectiveHoursPerDay = excludeLunch ? Math.max(0.1, baseHoursPerDay - lunchDuration) : baseHoursPerDay
-    const requiredDays = Math.ceil(remainingHours / effectiveHoursPerDay) + Number(leaveDays || 0)
+    const requiredDays = Math.ceil(remainingHours / effectiveHoursPerDay) // Notice no "+ Number(leaveDays || 0)" here, we handle specific dates later
     const workingDayNumbers = []
 
     if (selectedDays.sunday) workingDayNumbers.push(0)
@@ -689,7 +766,7 @@ const Home = () => {
     }
 
     const startDateValue = new Date(start)
-    
+
     // Find the latest time record date
     let lastRecordDate = null
     if (records && records.length > 0) {
@@ -703,7 +780,7 @@ const Home = () => {
       setEstimatedEndDate(completionDate.toISOString().split('T')[0])
       return
     }
-    
+
     // Determine the anchor date (where we start counting future required days)
     let anchorDate = new Date(startDateValue)
     if (lastRecordDate && lastRecordDate >= startDateValue) {
@@ -727,15 +804,56 @@ const Home = () => {
       currentDate.setDate(currentDate.getDate() + 1)
     }
 
-    // Add holidays to the end date
-    const holidaysToAdd = countHolidaysBetweenDates(anchorDate, currentDate, holidayConfig)
-    currentDate.setDate(currentDate.getDate() + holidaysToAdd)
+    // Now consider the specific list of leave & absent dates
+    // ONLY absent dates that are strictly greater than anchorDate will shift the timeline forward
+    // because any absent dates in the past are inherently already represented by 0 accumulated progress
+    // meaning the estimation is naturally deferred.
+    let futureAbsentDatesCount = 0;
+    if (Array.isArray(leaveDatesArray)) {
+      leaveDatesArray.forEach(d => {
+        const leaveDateObj = new Date(d);
+        leaveDateObj.setHours(0, 0, 0, 0);
+        // Only consider the date if it falls ON OR AFTER our anchorDate (the day we start counting forward from)
+        // AND it's on a working day
+        if (leaveDateObj >= anchorDate && workingDayNumbers.includes(leaveDateObj.getDay())) {
+          futureAbsentDatesCount++;
+        }
+      })
+    }
 
-    setEstimatedEndDate(currentDate.toISOString().split('T')[0])
+    let absentDaysToBuffer = futureAbsentDatesCount;
+    while (absentDaysToBuffer > 0) {
+      currentDate.setDate(currentDate.getDate() + 1);
+      if (workingDayNumbers.includes(currentDate.getDay())) {
+        absentDaysToBuffer--;
+      }
+    }
+
+    // Add holidays back to the end date
+    // We only add holidays if they are part of our normal schedule (i.e. we would have worked them)
+    // To do this properly, we keep extending dates forward whenever we hit a holiday we need to cover.
+    let remainingHolidaysToCover = countHolidaysBetweenDates(anchorDate, currentDate, holidayConfig);
+
+    while (remainingHolidaysToCover > 0) {
+      currentDate.setDate(currentDate.getDate() + 1);
+
+      // If this new day is a working day, it consumes one of the holiday bùffers we needed to add
+      if (workingDayNumbers.includes(currentDate.getDay())) {
+        remainingHolidaysToCover--;
+      }
+    }
+
+    setEstimatedEndDate(formatLocalYYYYMMDD(currentDate))
   }
 
+  useEffect(() => {
+    if (requiredHours && startDate) {
+      calculateEndDateWithProgress(requiredHours, startDate, workingDays, totalHoursWorked, excludeLunchBreak, lunchBreakDuration, holidays, timeRecords, leaveAndAbsentDates)
+    }
+  }, [requiredHours, startDate, workingDays, totalHoursWorked, excludeLunchBreak, lunchBreakDuration, holidays, timeRecords, leaveAndAbsentDates])
+
   const calculateEndDate = (hours, start, selectedDays = workingDays) => {
-    calculateEndDateWithProgress(hours, start, selectedDays, totalHoursWorked, excludeLunchBreak, lunchBreakDuration, holidays, timeRecords, leaveAndAbsentDays)
+    calculateEndDateWithProgress(hours, start, selectedDays, totalHoursWorked, excludeLunchBreak, lunchBreakDuration, holidays, timeRecords, leaveAndAbsentDates)
   }
 
   const getRemainingHours = () => {
@@ -876,327 +994,373 @@ const Home = () => {
                   </svg>
                 </button>
               </div>
-              
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="group">
-                    <label className="block text-sm font-semibold text-gray-700 mb-3">
-                      Required Hours
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        value={requiredHours}
-                        onChange={handleRequiredHoursChange}
-                        placeholder="e.g. 400"
-                        className="block w-full rounded-2xl border-2 border-[#89D4FF]/40 py-4 pl-5 pr-16 text-lg text-gray-900 placeholder-gray-400 transition-all duration-200 group-hover:border-[#89D4FF] focus:border-[#44ACFF] focus:outline-none focus:ring-4 focus:ring-[#89D4FF]/30"
-                      />
-                      <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
-                        <span className="text-gray-400 font-medium">hrs</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="group">
-                    <label className="block text-sm font-semibold text-gray-700 mb-3">
-                      Start Date
-                    </label>
-                    <input
-                      type="date"
-                      value={startDate}
-                      onChange={handleStartDateChange}
-                      className="block w-full rounded-2xl border-2 border-[#89D4FF]/40 px-5 py-4 text-lg text-gray-900 transition-all duration-200 group-hover:border-[#89D4FF] focus:border-[#44ACFF] focus:outline-none focus:ring-4 focus:ring-[#89D4FF]/30"
-                    />
-                  </div>
-                  
-                  <div className="group">
-                    <label className="block text-sm font-semibold text-gray-700 mb-3">
-                      Total Leave & Absent Days
-                    </label>
-                    <div className="flex items-center space-x-3">
-                      <button
-                        type="button"
-                        onClick={() => handleLeaveAndAbsentDaysChange({ target: { value: Math.max(0, leaveAndAbsentDays - 1) }})}
-                        className="flex h-12 w-12 items-center justify-center rounded-2xl border-2 border-[#89D4FF]/40 bg-[#F9F6C4]/30 text-gray-600 transition-all duration-200 hover:border-[#89D4FF] hover:bg-[#89D4FF]/20"
-                      >
-                        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4" />
-                        </svg>
-                      </button>
-                      <input
-                        type="number"
-                        min="0"
-                        value={leaveAndAbsentDays}
-                        onChange={handleLeaveAndAbsentDaysChange}
-                        className="block w-full rounded-2xl border-2 border-[#89D4FF]/40 px-5 py-4 text-center text-lg font-bold text-gray-900 transition-all duration-200 group-hover:border-[#89D4FF] focus:border-[#44ACFF] focus:outline-none focus:ring-4 focus:ring-[#89D4FF]/30"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleLeaveAndAbsentDaysChange({ target: { value: leaveAndAbsentDays + 1 }})}
-                        className="flex h-12 w-12 items-center justify-center rounded-2xl border-2 border-[#89D4FF]/40 bg-[#FE9EC7]/20 text-[#FE9EC7] transition-all duration-200 hover:border-[#FE9EC7] hover:bg-[#FE9EC7]/30"
-                      >
-                        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="group">
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">
-                    Estimated End Date
-                  </label>
-                  <div className="rounded-2xl border-2 border-[#FE9EC7]/35 bg-gradient-to-r from-[#F9F6C4]/70 to-[#FE9EC7]/25 px-5 py-4 text-lg font-medium text-slate-700">
-                    {estimatedEndDate ? 
-                      new Date(estimatedEndDate).toLocaleDateString('en-US', {
-                        weekday: 'short',
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric'
-                      }) : 'Not calculated yet'
-                    }
-                  </div>
-                  <p className="mt-2 text-xs text-amber-600/80 italic">
-                    * Make sure to save your configuration to see the updated Estimated End Date.
+
+              {/* Shared Estimated End Date Display */}
+              <div className="mb-6 rounded-2xl border-2 border-[#FE9EC7]/30 bg-gradient-to-r from-[#F9F6C4]/40 to-[#FE9EC7]/15 p-4 flex flex-col sm:flex-row sm:items-center justify-between shadow-sm">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700">Estimated End Date</h3>
+                  <p className="text-xs text-amber-600/80 italic mt-0.5">
+                    * Save configuration to apply changes.
                   </p>
                 </div>
-                
-                {/* Working Days Selection */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-4">
-                    Working Days
-                  </label>
-                  <div className="grid grid-cols-4 sm:grid-cols-7 gap-3">
-                    {[
-                      { key: 'monday', label: 'Mon', fullName: 'Monday' },
-                      { key: 'tuesday', label: 'Tue', fullName: 'Tuesday' },
-                      { key: 'wednesday', label: 'Wed', fullName: 'Wednesday' },
-                      { key: 'thursday', label: 'Thu', fullName: 'Thursday' },
-                      { key: 'friday', label: 'Fri', fullName: 'Friday' },
-                      { key: 'saturday', label: 'Sat', fullName: 'Saturday' },
-                      { key: 'sunday', label: 'Sun', fullName: 'Sunday' }
-                    ].map((day) => (
-                      <div key={day.key} className="flex flex-col items-center">
-                        <label className="flex flex-col items-center cursor-pointer group">
-                          <input
-                            type="checkbox"
-                            checked={workingDays[day.key]}
-                            onChange={() => handleWorkingDayChange(day.key)}
-                            className="sr-only"
-                          />
-                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xs font-bold transition-all duration-200 transform group-hover:scale-105 shadow-md ${
-                            workingDays[day.key]
-                              ? 'bg-gradient-to-br from-[#44ACFF] to-[#FE9EC7] text-slate-900 shadow-lg'
-                              : 'bg-[#F9F6C4] text-slate-500 hover:bg-[#89D4FF]/25 group-hover:shadow-lg'
-                          }`}>
-                            {day.label}
-                          </div>
-                          <span className={`text-xs mt-2 font-medium transition-colors duration-200 ${
-                            workingDays[day.key] ? 'text-[#44ACFF]' : 'text-gray-400'
-                          }`}>
-                            {day.fullName}
-                          </span>
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="mt-4 rounded-xl border border-[#89D4FF]/40 bg-[#89D4FF]/10 p-3 text-center text-sm text-slate-600">
-                    Select your working days. End date calculation will be based on these days only.
-                  </p>
-                </div>
-                
-                {/* Lunch Break Configuration */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-4">
-                    Lunch Break Settings
-                  </label>
-                  
-                  <div className="space-y-4">
-                    {/* Exclude lunch break toggle */}
-                    <div className="flex items-center space-x-4">
-                      <label className="flex items-center cursor-pointer group">
-                        <input
-                          type="checkbox"
-                          checked={excludeLunchBreak}
-                          onChange={handleExcludeLunchBreakChange}
-                          className="sr-only"
-                        />
-                        <div className={`relative w-12 h-6 rounded-full transition-all duration-200 ${
-                          excludeLunchBreak
-                            ? 'bg-gradient-to-r from-[#44ACFF] to-[#FE9EC7]'
-                            : 'bg-gray-300 group-hover:bg-gray-400'
-                        }`}>
-                          <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-200 ${
-                            excludeLunchBreak ? 'translate-x-6' : 'translate-x-0'
-                          }`}></div>
-                        </div>
-                        <span className="ml-3 text-sm font-medium text-gray-700">
-                          Exclude lunch break from daily hours
-                        </span>
-                      </label>
-                    </div>
-                    
-                    {/* Lunch break duration input - only shown when enabled */}
-                    {excludeLunchBreak && (
-                      <div className="group">
-                        <label className="block text-xs font-medium text-gray-600 mb-2">
-                          Lunch Break Duration
-                        </label>
-                        <div className="relative max-w-xs">
-                          <select
-                            value={lunchBreakDuration}
-                            onChange={handleLunchBreakDurationChange}
-                            className="block w-full rounded-xl border-2 border-[#89D4FF]/40 py-3 pl-4 pr-12 text-base text-gray-900 transition-all duration-200 group-hover:border-[#89D4FF] focus:border-[#44ACFF] focus:outline-none focus:ring-4 focus:ring-[#89D4FF]/30"
-                          >
-                            <option value="0.25">15 minutes</option>
-                            <option value="0.5">30 minutes</option>
-                            <option value="0.75">45 minutes</option>
-                            <option value="1">1 hour</option>
-                            <option value="1.25">1 hour 15 minutes</option>
-                            <option value="1.5">1 hour 30 minutes</option>
-                            <option value="2">2 hours</option>
-                          </select>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <p className="mt-4 rounded-xl border border-[#FE9EC7]/35 bg-gradient-to-r from-[#F9F6C4]/70 to-[#FE9EC7]/25 p-3 text-center text-sm text-slate-600">
-                    {excludeLunchBreak 
-                      ? `Daily effective hours: ${9 - lunchBreakDuration}h (9h - ${lunchBreakDuration}h lunch break)`
-                      : 'Full 9-hour workday will be counted (no lunch break deduction)'
-                    }
-                  </p>
-                </div>
-                
-                {/* Holiday Configuration */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-4">
-                    Philippine Holidays During Internship
-                  </label>
-                  
-                  {getMonthsInInternshipPeriod().length === 0 ? (
-                    <div className="text-center py-8 rounded-xl border border-[#89D4FF]/40 bg-[#89D4FF]/10">
-                      <p className="text-sm text-slate-600 mb-2">Complete your start date and required hours first</p>
-                      <p className="text-xs text-slate-500">Holiday configuration will appear once your internship period is defined</p>
-                    </div>
-                  ) : (
-                    <>
-                      {/* Quick presets */}
-                      <div className="mb-4">
-                        <p className="text-xs font-medium text-gray-600 mb-2">Quick Actions:</p>
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const updatedHolidays = { ...holidays }
-                              getMonthsInInternshipPeriod().forEach(month => {
-                                const philippineCount = { january: 1, february: 1, march: 0, april: 4, may: 1, june: 1, july: 0, august: 2, september: 0, october: 0, november: 3, december: 4 }[month.key]
-                                updatedHolidays[month.key] = philippineCount
-                              })
-                              setHolidays(updatedHolidays)
-                            }}
-                            className="px-3 py-1 text-xs bg-[#89D4FF]/20 text-[#44ACFF] rounded-full hover:bg-[#89D4FF]/30 transition-colors duration-200"
-                          >
-                            Enable All Philippines Holidays
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const updatedHolidays = { ...holidays }
-                              getMonthsInInternshipPeriod().forEach(month => {
-                                updatedHolidays[month.key] = 0
-                              })
-                              setHolidays(updatedHolidays)
-                            }}
-                            className="px-3 py-1 text-xs bg-gray-200 text-gray-600 rounded-full hover:bg-gray-300 transition-colors duration-200"
-                          >
-                            Disable All
-                          </button>
-                        </div>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {getMonthsInInternshipPeriod().map((month) => {
-                          const monthData = {
-                            january: { label: 'January', holidays: ['New Year\'s Day'] },
-                            february: { label: 'February', holidays: ['Chinese New Year'] },
-                            march: { label: 'March', holidays: [] },
-                            april: { label: 'April', holidays: ['Maundy Thursday', 'Good Friday', 'Black Saturday', 'Araw ng Kagitingan'] },
-                            may: { label: 'May', holidays: ['Labor Day'] },
-                            june: { label: 'June', holidays: ['Independence Day'] },
-                            july: { label: 'July', holidays: [] },
-                            august: { label: 'August', holidays: ['Ninoy Aquino Day', 'National Heroes Day'] },
-                            september: { label: 'September', holidays: [] },
-                            october: { label: 'October', holidays: [] },
-                            november: { label: 'November', holidays: ['All Saints\' Day', 'All Souls\' Day', 'Bonifacio Day'] },
-                            december: { label: 'December', holidays: ['Immaculate Conception', 'Christmas Eve', 'Christmas Day', 'New Year\'s Eve'] }
-                          }[month.key]
-                          
-                          const philippineCount = { january: 1, february: 1, march: 0, april: 4, may: 1, june: 1, july: 0, august: 2, september: 0, october: 0, november: 3, december: 4 }[month.key]
-                          const isEnabled = holidays[month.key] > 0
-                          
-                          return (
-                            <div key={month.key} className="group">
-                              <div className={`rounded-xl border-2 p-4 transition-all duration-200 cursor-pointer ${
-                                isEnabled 
-                                  ? 'border-[#44ACFF] bg-gradient-to-br from-[#44ACFF]/10 to-[#FE9EC7]/10 shadow-md'
-                                  : 'border-[#89D4FF]/30 bg-white hover:border-[#89D4FF] hover:shadow-sm'
-                              }`}
-                              onClick={() => handleHolidayChange(month.key)}
-                              >
-                                <div className="flex items-center justify-between mb-3">
-                                  <span className="text-2xl">{monthData.icon}</span>
-                                  <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold transition-colors duration-200 ${
-                                    isEnabled 
-                                      ? 'bg-[#44ACFF] text-white'
-                                      : 'bg-gray-200 text-gray-400'
-                                  }`}>
-                                    {holidays[month.key]}
-                                  </div>
-                                </div>
-                                
-                                <div className="text-center">
-                                  <p className="text-sm font-semibold text-gray-800 mb-1">{monthData.label}</p>
-                                  <p className={`text-xs transition-colors duration-200 ${
-                                    isEnabled ? 'text-[#44ACFF] font-medium' : 'text-gray-400'
-                                  }`}>
-                                    {philippineCount === 0 ? 'No holidays' : philippineCount === 1 ? '1 holiday' : `${philippineCount} holidays`}
-                                  </p>
-                                  
-                                  {philippineCount > 0 && (
-                                    <div className="mt-2 text-xs text-gray-500">
-                                      {monthData.holidays.slice(0, 2).map((holiday, idx) => (
-                                        <div key={idx}>{holiday}</div>
-                                      ))}
-                                      {monthData.holidays.length > 2 && (
-                                        <div>+{monthData.holidays.length - 2} more</div>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                      
-                      <div className="mt-4 rounded-xl border border-[#89D4FF]/40 bg-[#89D4FF]/10 p-3">
-                        <div className="text-sm text-slate-600 text-center">
-                          <span className="font-medium">Total holidays during internship:</span> <span className="font-bold text-[#44ACFF]">{Object.entries(holidays).filter(([month, count]) => getMonthsInInternshipPeriod().some(m => m.key === month) && count > 0).reduce((sum, [, count]) => sum + count, 0)} days</span>
-                        </div>
-                      </div>
-                      
-                      <p className="mt-3 text-center text-xs text-slate-500">
-                        Only months within your internship period ({startDate ? new Date(startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'start'} - {estimatedEndDate ? new Date(estimatedEndDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'end'}) are shown.
-                      </p>
-                    </>
-                  )}
+                <div className="mt-2 sm:mt-0 text-lg sm:text-xl font-bold text-[#44ACFF]">
+                  {estimatedEndDate ?
+                    new Date(estimatedEndDate).toLocaleDateString('en-US', {
+                      weekday: 'short',
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric'
+                    }) : 'Not calculated yet'
+                  }
                 </div>
               </div>
-              
-              <div className="mt-6">
+
+              {/* Tabs Navigation */}
+              <div className="flex space-x-2 border-b-2 border-slate-100 mb-6 sm:mb-8 overflow-x-auto pb-2 scrollbar-hide">
+                <button
+                  onClick={() => setActiveSetupTab('basic')}
+                  className={`flex-shrink-0 px-4 py-2 font-semibold text-sm sm:text-base rounded-t-xl transition-all duration-200 border-b-4 ${activeSetupTab === 'basic' ? 'border-[#44ACFF] text-[#44ACFF] bg-[#89D4FF]/10' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+                >
+                  Basic Info
+                </button>
+                <button
+                  onClick={() => setActiveSetupTab('schedule')}
+                  className={`flex-shrink-0 px-4 py-2 font-semibold text-sm sm:text-base rounded-t-xl transition-all duration-200 border-b-4 ${activeSetupTab === 'schedule' ? 'border-[#44ACFF] text-[#44ACFF] bg-[#89D4FF]/10' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+                >
+                  Schedule
+                </button>
+                <button
+                  onClick={() => setActiveSetupTab('holidays')}
+                  className={`flex-shrink-0 px-4 py-2 font-semibold text-sm sm:text-base rounded-t-xl transition-all duration-200 border-b-4 ${activeSetupTab === 'holidays' ? 'border-[#44ACFF] text-[#44ACFF] bg-[#89D4FF]/10' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+                >
+                  Leaves & Holidays
+                </button>
+              </div>
+
+              <div className="space-y-6 min-h-[400px]">
+                {/* Tab: Basic Info */}
+                {activeSetupTab === 'basic' && (
+                  <div className="grid grid-cols-1 gap-6 animate-in slide-in-from-right-4 fade-in duration-300">
+                    <div className="group">
+                      <label className="block text-sm font-semibold text-gray-700 mb-3">
+                        Required Hours
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          value={requiredHours}
+                          onChange={handleRequiredHoursChange}
+                          placeholder="e.g. 400"
+                          className="block w-full rounded-2xl border-2 border-[#89D4FF]/40 py-4 pl-5 pr-16 text-lg text-gray-900 placeholder-gray-400 transition-all duration-200 group-hover:border-[#89D4FF] focus:border-[#44ACFF] focus:outline-none focus:ring-4 focus:ring-[#89D4FF]/30"
+                        />
+                        <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                          <span className="text-gray-400 font-medium">hrs</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="group">
+                      <label className="block text-sm font-semibold text-gray-700 mb-3">
+                        Start Date
+                      </label>
+                      <input
+                        type="date"
+                        value={startDate}
+                        onChange={handleStartDateChange}
+                        className="block w-full rounded-2xl border-2 border-[#89D4FF]/40 px-5 py-4 text-lg text-gray-900 transition-all duration-200 group-hover:border-[#89D4FF] focus:border-[#44ACFF] focus:outline-none focus:ring-4 focus:ring-[#89D4FF]/30"
+                      />
+                    </div>
+
+                  </div>
+                )}
+
+                {/* Tab: Schedule */}
+                {activeSetupTab === 'schedule' && (
+                  <div className="space-y-8 animate-in slide-in-from-right-4 fade-in duration-300">
+                    {/* Working Days Selection */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-4">
+                        Working Days
+                      </label>
+                      <div className="grid grid-cols-4 sm:grid-cols-7 gap-3">
+                        {[
+                          { key: 'monday', label: 'Mon', fullName: 'Monday' },
+                          { key: 'tuesday', label: 'Tue', fullName: 'Tuesday' },
+                          { key: 'wednesday', label: 'Wed', fullName: 'Wednesday' },
+                          { key: 'thursday', label: 'Thu', fullName: 'Thursday' },
+                          { key: 'friday', label: 'Fri', fullName: 'Friday' },
+                          { key: 'saturday', label: 'Sat', fullName: 'Saturday' },
+                          { key: 'sunday', label: 'Sun', fullName: 'Sunday' }
+                        ].map((day) => (
+                          <div key={day.key} className="flex flex-col items-center">
+                            <label className="flex flex-col items-center cursor-pointer group">
+                              <input
+                                type="checkbox"
+                                checked={workingDays[day.key]}
+                                onChange={() => handleWorkingDayChange(day.key)}
+                                className="sr-only"
+                              />
+                              <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xs font-bold transition-all duration-200 transform group-hover:scale-105 shadow-md ${workingDays[day.key]
+                                ? 'bg-gradient-to-br from-[#44ACFF] to-[#FE9EC7] text-slate-900 shadow-lg'
+                                : 'bg-[#F9F6C4] text-slate-500 hover:bg-[#89D4FF]/25 group-hover:shadow-lg'
+                                }`}>
+                                {day.label}
+                              </div>
+                              <span className={`text-xs mt-2 font-medium transition-colors duration-200 ${workingDays[day.key] ? 'text-[#44ACFF]' : 'text-gray-400'
+                                }`}>
+                                {day.fullName}
+                              </span>
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="mt-4 rounded-xl border border-[#89D4FF]/40 bg-[#89D4FF]/10 p-3 text-center text-sm text-slate-600">
+                        Select your working days. End date calculation will be based on these days only.
+                      </p>
+                    </div>
+
+                    {/* Lunch Break Configuration */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-4">
+                        Lunch Break Settings
+                      </label>
+
+                      <div className="space-y-4">
+                        {/* Exclude lunch break toggle */}
+                        <div className="flex items-center space-x-4">
+                          <label className="flex items-center cursor-pointer group">
+                            <input
+                              type="checkbox"
+                              checked={excludeLunchBreak}
+                              onChange={handleExcludeLunchBreakChange}
+                              className="sr-only"
+                            />
+                            <div className={`relative w-12 h-6 rounded-full transition-all duration-200 ${excludeLunchBreak
+                              ? 'bg-gradient-to-r from-[#44ACFF] to-[#FE9EC7]'
+                              : 'bg-gray-300 group-hover:bg-gray-400'
+                              }`}>
+                              <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-200 ${excludeLunchBreak ? 'translate-x-6' : 'translate-x-0'
+                                }`}></div>
+                            </div>
+                            <span className="ml-3 text-sm font-medium text-gray-700">
+                              Exclude lunch break from daily hours
+                            </span>
+                          </label>
+                        </div>
+
+                        {/* Lunch break duration input - only shown when enabled */}
+                        {excludeLunchBreak && (
+                          <div className="group">
+                            <label className="block text-xs font-medium text-gray-600 mb-2">
+                              Lunch Break Duration
+                            </label>
+                            <div className="relative max-w-xs">
+                              <select
+                                value={lunchBreakDuration}
+                                onChange={handleLunchBreakDurationChange}
+                                className="block w-full rounded-xl border-2 border-[#89D4FF]/40 py-3 pl-4 pr-12 text-base text-gray-900 transition-all duration-200 group-hover:border-[#89D4FF] focus:border-[#44ACFF] focus:outline-none focus:ring-4 focus:ring-[#89D4FF]/30"
+                              >
+                                <option value="0.25">15 minutes</option>
+                                <option value="0.5">30 minutes</option>
+                                <option value="0.75">45 minutes</option>
+                                <option value="1">1 hour</option>
+                                <option value="1.25">1 hour 15 minutes</option>
+                                <option value="1.5">1 hour 30 minutes</option>
+                                <option value="2">2 hours</option>
+                              </select>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <p className="mt-4 rounded-xl border border-[#FE9EC7]/35 bg-gradient-to-r from-[#F9F6C4]/70 to-[#FE9EC7]/25 p-3 text-center text-sm text-slate-600">
+                        {excludeLunchBreak
+                          ? `Daily effective hours: ${9 - lunchBreakDuration}h (9h - ${lunchBreakDuration}h lunch break)`
+                          : 'Full 9-hour workday will be counted (no lunch break deduction)'
+                        }
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Tab: Holidays */}
+                {activeSetupTab === 'holidays' && (
+                  <div className="space-y-8 animate-in slide-in-from-right-4 fade-in duration-300">
+                    <div className="group">
+                      <label className="block text-sm font-semibold text-gray-700 mb-3">
+                        Leave & Absent Dates
+                      </label>
+                      <div className="flex flex-col space-y-3">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
+                          <input
+                            type="date"
+                            value={newLeaveDate}
+                            onChange={(e) => setNewLeaveDate(e.target.value)}
+                            className="block flex-1 rounded-2xl border-2 border-[#89D4FF]/40 px-5 py-3 text-lg text-gray-900 transition-all duration-200 focus:border-[#44ACFF] focus:outline-none focus:ring-4 focus:ring-[#89D4FF]/30"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleAddLeaveDate}
+                            disabled={!newLeaveDate || leaveAndAbsentDates.includes(newLeaveDate)}
+                            className="flex h-[56px] px-6 items-center justify-center rounded-2xl border-2 border-transparent bg-gradient-to-r from-[#44ACFF] to-[#89D4FF] text-white font-bold transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                          >
+                            Add Date
+                          </button>
+                        </div>
+
+                        {leaveAndAbsentDates.length > 0 ? (
+                          <div className="flex flex-wrap gap-2 p-4 bg-[#F9F6C4]/30 rounded-2xl border border-[#89D4FF]/20">
+                            {leaveAndAbsentDates.sort().map((date) => (
+                              <span
+                                key={date}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white text-[#44ACFF] border border-[#89D4FF] text-sm font-medium shadow-sm transition-all duration-200 hover:shadow-md"
+                              >
+                                {new Date(date).toLocaleDateString()}
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveLeaveDate(date)}
+                                  className="p-0.5 rounded-full hover:bg-red-50 hover:text-red-500 transition-colors duration-200"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-sm text-gray-500 italic p-2 text-center">
+                            No absent dates added yet.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="pt-6 border-t border-slate-200">
+                      <label className="block text-sm font-semibold text-gray-700 mb-4">
+                        Philippine Holidays During Internship
+                      </label>
+
+                      {getMonthsInInternshipPeriod().length === 0 ? (
+                        <div className="text-center py-8 rounded-xl border border-[#89D4FF]/40 bg-[#89D4FF]/10">
+                          <p className="text-sm text-slate-600 mb-2">Complete your start date and required hours first</p>
+                          <p className="text-xs text-slate-500">Holiday configuration will appear once your internship period is defined</p>
+                        </div>
+                      ) : (
+                        <>
+                          {/* Quick presets */}
+                          <div className="mb-4">
+                            <p className="text-xs font-medium text-gray-600 mb-2">Quick Actions:</p>
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updatedHolidays = { ...holidays }
+                                  getMonthsInInternshipPeriod().forEach(month => {
+                                    const philippineCount = { january: 1, february: 1, march: 0, april: 4, may: 1, june: 1, july: 0, august: 2, september: 0, october: 0, november: 3, december: 4 }[month.key]
+                                    updatedHolidays[month.key] = philippineCount
+                                  })
+                                  setHolidays(updatedHolidays)
+                                }}
+                                className="px-3 py-1 text-xs bg-[#89D4FF]/20 text-[#44ACFF] rounded-full hover:bg-[#89D4FF]/30 transition-colors duration-200"
+                              >
+                                Enable All Philippines Holidays
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updatedHolidays = { ...holidays }
+                                  getMonthsInInternshipPeriod().forEach(month => {
+                                    updatedHolidays[month.key] = 0
+                                  })
+                                  setHolidays(updatedHolidays)
+                                }}
+                                className="px-3 py-1 text-xs bg-gray-200 text-gray-600 rounded-full hover:bg-gray-300 transition-colors duration-200"
+                              >
+                                Disable All
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                            {getMonthsInInternshipPeriod().map((month) => {
+                              const monthData = {
+                                january: { label: 'January', holidays: ['New Year\'s Day'] },
+                                february: { label: 'February', holidays: ['Chinese New Year'] },
+                                march: { label: 'March', holidays: [] },
+                                april: { label: 'April', holidays: ['Maundy Thursday', 'Good Friday', 'Black Saturday', 'Araw ng Kagitingan'] },
+                                may: { label: 'May', holidays: ['Labor Day'] },
+                                june: { label: 'June', holidays: ['Independence Day'] },
+                                july: { label: 'July', holidays: [] },
+                                august: { label: 'August', holidays: ['Ninoy Aquino Day', 'National Heroes Day'] },
+                                september: { label: 'September', holidays: [] },
+                                october: { label: 'October', holidays: [] },
+                                november: { label: 'November', holidays: ['All Saints\' Day', 'All Souls\' Day', 'Bonifacio Day'] },
+                                december: { label: 'December', holidays: ['Immaculate Conception', 'Christmas Eve', 'Christmas Day', 'New Year\'s Eve'] }
+                              }[month.key]
+
+                              const philippineCount = { january: 1, february: 1, march: 0, april: 4, may: 1, june: 1, july: 0, august: 2, september: 0, october: 0, november: 3, december: 4 }[month.key]
+                              const isEnabled = holidays[month.key] > 0
+
+                              return (
+                                <div key={month.key} className="group">
+                                  <div className={`rounded-xl border-2 p-4 transition-all duration-200 cursor-pointer ${isEnabled
+                                    ? 'border-[#44ACFF] bg-gradient-to-br from-[#44ACFF]/10 to-[#FE9EC7]/10 shadow-md'
+                                    : 'border-[#89D4FF]/30 bg-white hover:border-[#89D4FF] hover:shadow-sm'
+                                    }`}
+                                    onClick={() => handleHolidayChange(month.key)}
+                                  >
+                                    <div className="flex items-center justify-between mb-3">
+                                      <span className="text-2xl">{monthData.icon}</span>
+                                      <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold transition-colors duration-200 ${isEnabled
+                                        ? 'bg-[#44ACFF] text-white'
+                                        : 'bg-gray-200 text-gray-400'
+                                        }`}>
+                                        {holidays[month.key]}
+                                      </div>
+                                    </div>
+
+                                    <div className="text-center">
+                                      <p className="text-sm font-semibold text-gray-800 mb-1">{monthData.label}</p>
+                                      <p className={`text-xs transition-colors duration-200 ${isEnabled ? 'text-[#44ACFF] font-medium' : 'text-gray-400'
+                                        }`}>
+                                        {philippineCount === 0 ? 'No holidays' : philippineCount === 1 ? '1 holiday' : `${philippineCount} holidays`}
+                                      </p>
+
+                                      {philippineCount > 0 && (
+                                        <div className="mt-2 text-xs text-gray-500">
+                                          {monthData.holidays.slice(0, 2).map((holiday, idx) => (
+                                            <div key={idx}>{holiday}</div>
+                                          ))}
+                                          {monthData.holidays.length > 2 && (
+                                            <div>+{monthData.holidays.length - 2} more</div>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+
+                          <div className="mt-4 rounded-xl border border-[#89D4FF]/40 bg-[#89D4FF]/10 p-3">
+                            <div className="text-sm text-slate-600 text-center">
+                              <span className="font-medium">Total holidays during internship:</span> <span className="font-bold text-[#44ACFF]">{Object.entries(holidays).filter(([month, count]) => getMonthsInInternshipPeriod().some(m => m.key === month) && count > 0).reduce((sum, [, count]) => sum + count, 0)} days</span>
+                            </div>
+                          </div>
+
+                          <p className="mt-3 text-center text-xs text-slate-500">
+                            Only months within your internship period ({startDate ? new Date(startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'start'} - {estimatedEndDate ? new Date(estimatedEndDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'end'}) are shown.
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-8 flex flex-col-reverse sm:flex-row justify-end space-y-3 space-y-reverse sm:space-y-0 sm:space-x-3 pt-6 border-t border-slate-100">
                 <button
                   onClick={handleSave}
                   className="flex w-full items-center justify-center space-x-2 rounded-xl bg-gradient-to-r from-[#FE9EC7] via-[#F9F6C4] to-[#44ACFF] px-6 py-3 font-medium text-slate-900 shadow-[0_16px_32px_rgba(68,172,255,0.22)] transition-all duration-200 hover:brightness-105"
@@ -1207,12 +1371,12 @@ const Home = () => {
                   <span>Save Configuration</span>
                 </button>
               </div>
-              
+
               {requiredHours && startDate && (
                 <div className="mt-4 rounded-xl border border-[#89D4FF]/40 bg-gradient-to-r from-[#89D4FF]/12 to-[#FE9EC7]/12 p-4">
                   <h4 className="mb-2 text-sm font-semibold text-[#44ACFF]">Configuration Summary</h4>
                   <p className="mb-2 text-sm text-slate-700">
-                    <span className="font-medium">Duration:</span> Based on {excludeLunchBreak ? 9 - lunchBreakDuration : 9} effective hours per day on selected working days{excludeLunchBreak ? ` (9h work - ${lunchBreakDuration}h lunch break)` : ''}. 
+                    <span className="font-medium">Duration:</span> Based on {excludeLunchBreak ? 9 - lunchBreakDuration : 9} effective hours per day on selected working days{excludeLunchBreak ? ` (9h work - ${lunchBreakDuration}h lunch break)` : ''}.
                     You'll need approximately <span className="font-semibold">{Math.ceil(requiredHours / (excludeLunchBreak ? 9 - lunchBreakDuration : 9))} working days</span> to complete <span className="font-semibold">{requiredHours} hours</span>.
                     <br />
                     <span className="font-medium">Holidays:</span> {Object.entries(holidays).filter(([month, count]) => count > 0 && getMonthsInInternshipPeriod().some(m => m.key === month)).reduce((sum, [month, count]) => sum + count, 0)} Philippine holiday{Object.entries(holidays).filter(([month, count]) => count > 0 && getMonthsInInternshipPeriod().some(m => m.key === month)).reduce((sum, [month, count]) => sum + count, 0) === 1 ? '' : 's'} during internship period.
@@ -1236,7 +1400,7 @@ const Home = () => {
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8">
-        
+
         {/* Current Time Display */}
         <div className="mb-6 rounded-xl border border-white/75 bg-white/90 p-4 text-center shadow-[0_20px_50px_rgba(68,172,255,0.16)] sm:mb-8 sm:rounded-2xl sm:p-6 lg:p-8">
           <div className="mb-3 sm:mb-4">
@@ -1279,7 +1443,7 @@ const Home = () => {
               </div>
             )}
           </div>
-          
+
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-3 sm:mb-4">
             <div className="rounded-lg bg-[#F9F6C4]/70 p-3 sm:p-4">
               <h3 className="mb-1 text-xs font-medium text-[#44ACFF] sm:text-sm">Hours Completed</h3>
@@ -1314,10 +1478,10 @@ const Home = () => {
               </p>
             </div>
           </div>
-          
+
           {requiredHours && (
             <div className="mb-3 h-2 w-full rounded-full bg-slate-200 sm:mb-4 sm:h-3">
-              <div 
+              <div
                 className="h-2 rounded-full bg-gradient-to-r from-[#FE9EC7] via-[#F9F6C4] to-[#44ACFF] transition-all duration-300 sm:h-3"
                 style={{ width: `${getProgressPercentage()}%` }}
               ></div>
@@ -1328,39 +1492,73 @@ const Home = () => {
         {/* Recent Time Records */}
         <div className="rounded-xl border border-white/75 bg-white/90 p-4 shadow-[0_20px_50px_rgba(68,172,255,0.16)] sm:rounded-2xl sm:p-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 sm:mb-4 space-y-2 sm:space-y-0">
-            <h2 className="text-lg sm:text-xl font-bold text-gray-900">Recent Records</h2>
-            <button
-              onClick={downloadAttendanceReport}
-              disabled={isGeneratingReport || timeRecords.length === 0}
-              className="flex w-full items-center justify-center space-x-2 rounded-xl bg-gradient-to-r from-[#44ACFF] to-[#89D4FF] px-4 py-2 text-sm font-semibold text-slate-900 shadow-[0_16px_32px_rgba(68,172,255,0.2)] transition-all duration-200 hover:scale-[1.02] hover:shadow-[0_20px_36px_rgba(68,172,255,0.24)] disabled:cursor-not-allowed disabled:transform-none disabled:from-gray-300 disabled:to-gray-400 sm:w-auto"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <span>
-                {isGeneratingReport ? 'Generating...' : timeRecords.length === 0 ? 'No Records Available' : 'Download Report'}
-              </span>
-            </button>
+            <div className="flex items-center space-x-4">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900">Recent Records</h2>
+              {timeRecords.length > 0 && (
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={paginatedRecords.length > 0 && selectedRecords.length >= paginatedRecords.length && paginatedRecords.every(r => selectedRecords.includes(r._id))}
+                    onChange={toggleAllRecordsSelection}
+                    className="w-4 h-4 rounded border-gray-300 text-[#44ACFF] focus:ring-[#44ACFF]"
+                  />
+                  <span className="text-sm text-gray-600">Select All Page</span>
+                </label>
+              )}
+            </div>
+            <div className="flex items-center space-x-2 w-full sm:w-auto">
+              {selectedRecords.length > 0 && (
+                <button
+                  onClick={handleDeleteSelected}
+                  className="flex items-center justify-center space-x-1 rounded-xl bg-red-50 px-3 py-2 text-sm font-semibold text-red-600 shadow-sm border border-red-200 transition-all duration-200 hover:bg-red-100 sm:w-auto"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  <span>Delete Selected ({selectedRecords.length})</span>
+                </button>
+              )}
+              <button
+                onClick={downloadAttendanceReport}
+                disabled={isGeneratingReport || timeRecords.length === 0}
+                className="flex flex-1 items-center justify-center space-x-2 rounded-xl bg-gradient-to-r from-[#44ACFF] to-[#89D4FF] px-4 py-2 text-sm font-semibold text-slate-900 shadow-[0_16px_32px_rgba(68,172,255,0.2)] transition-all duration-200 hover:scale-[1.02] hover:shadow-[0_20px_36px_rgba(68,172,255,0.24)] disabled:cursor-not-allowed disabled:transform-none disabled:from-gray-300 disabled:to-gray-400 sm:w-auto sm:flex-initial"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span>
+                  {isGeneratingReport ? 'Generating...' : timeRecords.length === 0 ? 'No Records Available' : 'Download Report'}
+                </span>
+              </button>
+            </div>
           </div>
-          
+
           {timeRecords.length > 0 ? (
             <div className="space-y-2 sm:space-y-3">
               {paginatedRecords.map((record) => (
-                <div key={record._id} className="flex items-center justify-between rounded-lg bg-[#F9F6C4]/45 p-3 transition-colors duration-200 hover:bg-[#89D4FF]/12 sm:p-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-1 sm:space-y-0">
-                      <div className="text-sm font-medium text-gray-900">
+                <div key={record._id} className={`flex items-center justify-between rounded-lg p-3 transition-colors duration-200 sm:p-4 border ${selectedRecords.includes(record._id) ? 'border-[#44ACFF] bg-[#89D4FF]/20 shadow-sm' : 'border-transparent bg-[#F9F6C4]/45 hover:bg-[#89D4FF]/12'}`}>
+                  <div className="flex-1 min-w-0 flex items-center mb-[2px] mt-[1px]">
+                    <div className="mr-3 w-5">
+                      <input
+                        type="checkbox"
+                        checked={selectedRecords.includes(record._id)}
+                        onChange={() => toggleRecordSelection(record._id)}
+                        className="w-4 h-4 rounded border-gray-300 text-[#44ACFF] focus:ring-[#44ACFF]"
+                      />
+                    </div>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-1 sm:space-y-0 flex-1">
+                      <div className="text-sm font-medium text-gray-900 min-w-24">
                         {new Date(record.date).toLocaleDateString('en-US', {
                           weekday: 'short',
                           month: 'short',
                           day: 'numeric'
                         })}
                       </div>
-                      <div className="text-base font-bold text-[#44ACFF] sm:text-lg">
+                      <div className="text-base font-bold text-[#44ACFF] sm:text-lg min-w-20">
                         {formatHoursAndMinutes(parseFloat(record.hours))}
                       </div>
                       {record.description && (
-                        <div className="text-xs sm:text-sm text-gray-600 truncate max-w-full sm:max-w-xs">
+                        <div className="text-xs sm:text-sm text-gray-600 truncate max-w-full sm:max-w-xs xl:max-w-md">
                           {record.description}
                         </div>
                       )}
@@ -1388,7 +1586,7 @@ const Home = () => {
                   </div>
                 </div>
               ))}
-              
+
               {timeRecords.length > recordsPerPage && (
                 <div className="flex items-center justify-center gap-2 pt-3 sm:pt-4">
                   <button
@@ -1406,11 +1604,10 @@ const Home = () => {
                       <button
                         key={pageNumber}
                         onClick={() => setCurrentRecordsPage(pageNumber)}
-                        className={`rounded-lg px-3 py-1.5 text-xs sm:text-sm font-semibold transition-colors duration-200 ${
-                          isActive
-                            ? 'bg-[#44ACFF] text-white shadow-md'
-                            : 'border border-[#89D4FF]/35 text-slate-600 hover:bg-[#89D4FF]/12'
-                        }`}
+                        className={`rounded-lg px-3 py-1.5 text-xs sm:text-sm font-semibold transition-colors duration-200 ${isActive
+                          ? 'bg-[#44ACFF] text-white shadow-md'
+                          : 'border border-[#89D4FF]/35 text-slate-600 hover:bg-[#89D4FF]/12'
+                          }`}
                       >
                         {pageNumber}
                       </button>
@@ -1506,23 +1703,47 @@ const Home = () => {
                   </svg>
                 </div>
               </div>
-              
+
               <div className="text-center mb-8">
                 <h2 className="text-2xl font-bold text-gray-900 mb-3">Delete Time Record</h2>
                 <p className="text-gray-600 text-lg mb-4">This action cannot be undone.</p>
-                
+
                 {(() => {
+                  if (isDeletingMultiple) {
+                    const expectedText = `delete ${selectedRecords.length} records`;
+                    const isMatch = deleteConfirmationDate.trim().toLowerCase() === expectedText;
+
+                    return (
+                      <>
+                        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl">
+                          <p className="text-sm font-medium text-red-800 mb-2">
+                            You are about to delete <span className="font-bold">{selectedRecords.length} records</span>
+                          </p>
+                          <p className="text-sm text-red-600">
+                            Type <span className="font-mono bg-red-100 px-1 py-0.5 rounded">delete {selectedRecords.length} records</span> to confirm:
+                          </p>
+                        </div>
+                        <input
+                          type="text"
+                          value={deleteConfirmationDate}
+                          onChange={(e) => setDeleteConfirmationDate(e.target.value)}
+                          placeholder={`Type: ${expectedText}`}
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl text-center font-medium focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-200 transition-colors duration-200"
+                          autoFocus
+                        />
+                      </>
+                    )
+                  }
+
                   const recordToDeleteObj = timeRecords.find(record => record._id === recordToDelete)
                   if (!recordToDeleteObj) return null
-                  
+
                   const formattedDate = new Date(recordToDeleteObj.date).toLocaleDateString('en-US', {
                     weekday: 'short',
                     month: 'short',
                     day: 'numeric'
                   })
-                  
-                  const isDateMatch = deleteConfirmationDate.trim().toLowerCase() === formattedDate.toLowerCase()
-                  
+
                   return (
                     <>
                       <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl">
@@ -1533,7 +1754,7 @@ const Home = () => {
                           Type the date exactly as shown above to confirm deletion:
                         </p>
                       </div>
-                      
+
                       <input
                         type="text"
                         value={deleteConfirmationDate}
@@ -1547,7 +1768,7 @@ const Home = () => {
                 })()
                 }
               </div>
-              
+
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <button
                   onClick={() => {
@@ -1560,31 +1781,34 @@ const Home = () => {
                   Cancel
                 </button>
                 {(() => {
-                  const recordToDeleteObj = timeRecords.find(record => record._id === recordToDelete)
-                  if (!recordToDeleteObj) return null
-                  
-                  const formattedDate = new Date(recordToDeleteObj.date).toLocaleDateString('en-US', {
-                    weekday: 'short',
-                    month: 'short',
-                    day: 'numeric'
-                  })
-                  
-                  const isDateMatch = deleteConfirmationDate.trim().toLowerCase() === formattedDate.toLowerCase()
-                  
+                  let isMatch = false
+                  if (isDeletingMultiple) {
+                    isMatch = deleteConfirmationDate.trim().toLowerCase() === `delete ${selectedRecords.length} records`.toLowerCase()
+                  } else {
+                    const recordToDeleteObj = timeRecords.find(record => record._id === recordToDelete)
+                    if (recordToDeleteObj) {
+                      const formattedDate = new Date(recordToDeleteObj.date).toLocaleDateString('en-US', {
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric'
+                      })
+                      isMatch = deleteConfirmationDate.trim().toLowerCase() === formattedDate.toLowerCase()
+                    }
+                  }
+
                   return (
                     <button
                       onClick={confirmDeleteRecord}
-                      disabled={!isDateMatch}
-                      className={`w-full sm:flex-1 font-semibold py-3 px-6 rounded-2xl transition-all duration-200 transform shadow-lg flex items-center justify-center space-x-2 text-lg order-1 sm:order-2 ${
-                        isDateMatch
-                          ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white hover:scale-[1.02] hover:shadow-xl cursor-pointer'
-                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      }`}
+                      disabled={!isMatch}
+                      className={`w-full sm:flex-1 font-semibold py-3 px-6 rounded-2xl transition-all duration-200 transform shadow-lg flex items-center justify-center space-x-2 text-lg order-1 sm:order-2 ${isMatch
+                        ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white hover:scale-[1.02] hover:shadow-xl cursor-pointer'
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        }`}
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
-                      <span>Delete Record</span>
+                      <span>Delete {isDeletingMultiple ? 'Records' : 'Record'}</span>
                     </button>
                   )
                 })()

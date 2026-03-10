@@ -53,11 +53,9 @@ const internshipSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-  leaveAndAbsentDays: {
-    type: Number,
-    default: 0,
-    min: 0
-  },
+  leaveAndAbsentDates: [{
+    type: Date
+  }],
   lunchBreakDuration: {
     type: Number,
     default: 1,

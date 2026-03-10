@@ -21,7 +21,7 @@ router.get('/', auth, async (req, res) => {
   try {
     const { startDate, endDate } = req.query
     let query = { userId: req.user.id }
-    
+
     // Add date filtering if provided
     if (startDate && endDate) {
       query.date = {
@@ -29,7 +29,7 @@ router.get('/', auth, async (req, res) => {
         $lte: new Date(endDate)
       }
     }
-    
+
     const records = await TimeRecord.find(query).sort({ date: -1 })
     res.json(records)
   } catch (error) {
@@ -45,9 +45,9 @@ router.get('/total', auth, async (req, res) => {
       { $match: { userId: req.user.id } },
       { $group: { _id: null, totalHours: { $sum: '$hours' } } }
     ])
-    
-    res.json({ 
-      totalHours: totalHours.length > 0 ? totalHours[0].totalHours : 0 
+
+    res.json({
+      totalHours: totalHours.length > 0 ? totalHours[0].totalHours : 0
     })
   } catch (error) {
     console.error(error.message)
@@ -63,7 +63,7 @@ router.post('/', auth, async (req, res) => {
 
     // Validate required fields
     if (!date || !clockInTime || !clockOutTime || !hours) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: 'Date, clock in time, clock out time, and hours are required'
       })
     }
@@ -75,14 +75,14 @@ router.post('/', auth, async (req, res) => {
     }
 
     // Check if record already exists for this date
-    const existingRecord = await TimeRecord.findOne({ 
-      userId: req.user.id, 
+    const existingRecord = await TimeRecord.findOne({
+      userId: req.user.id,
       date: normalizedDate
     })
-    
+
     if (existingRecord) {
-      return res.status(400).json({ 
-        message: 'A record already exists for this date. Please edit the existing record.' 
+      return res.status(400).json({
+        message: 'A record already exists for this date. Please edit the existing record.'
       })
     }
 
@@ -120,13 +120,13 @@ router.put('/:id', auth, async (req, res) => {
   try {
     const { date, clockInTime, clockOutTime, hours, description, tasks } = req.body
     const normalizedDate = date ? normalizeRecordDate(date) : null
-    
+
     // Find the record and verify ownership
     const timeRecord = await TimeRecord.findOne({
       _id: req.params.id,
       userId: req.user.id
     })
-    
+
     if (!timeRecord) {
       return res.status(404).json({ message: 'Time record not found' })
     }
@@ -183,6 +183,35 @@ router.put('/:id', auth, async (req, res) => {
   }
 })
 
+// Delete multiple time records
+router.delete('/batch', auth, async (req, res) => {
+  try {
+    const { recordIds } = req.body
+
+    if (!recordIds || !Array.isArray(recordIds) || recordIds.length === 0) {
+      return res.status(400).json({ message: 'No record IDs provided for deletion' })
+    }
+
+    // Verify all records belong to the user before deleting
+    const result = await TimeRecord.deleteMany({
+      _id: { $in: recordIds },
+      userId: req.user.id
+    })
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ message: 'No time records found to delete' })
+    }
+
+    res.json({
+      message: `Successfully deleted ${result.deletedCount} time record(s)`,
+      deletedCount: result.deletedCount
+    })
+  } catch (error) {
+    console.error(error.message)
+    res.status(500).send('Server error')
+  }
+})
+
 // Delete a time record
 router.delete('/:id', auth, async (req, res) => {
   try {
@@ -190,7 +219,7 @@ router.delete('/:id', auth, async (req, res) => {
       _id: req.params.id,
       userId: req.user.id
     })
-    
+
     if (!timeRecord) {
       return res.status(404).json({ message: 'Time record not found' })
     }

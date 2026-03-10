@@ -8,7 +8,7 @@ const router = express.Router()
 router.get('/config', auth, async (req, res) => {
   try {
     const internship = await Internship.findOne({ userId: req.user.id })
-    
+
     if (!internship) {
       return res.status(404).json({ message: 'No internship configuration found' })
     }
@@ -32,13 +32,14 @@ router.post('/config', auth, async (req, res) => {
       hoursPerDay,
       excludeLunchBreak,
       lunchBreakDuration,
-      leaveAndAbsentDays
+      leaveAndAbsentDays,
+      leaveAndAbsentDates
     } = req.body
 
     // Validate required fields
     if (!requiredHours || !startDate || !estimatedEndDate) {
-      return res.status(400).json({ 
-        message: 'Required hours, start date, and estimated end date are required' 
+      return res.status(400).json({
+        message: 'Required hours, start date, and estimated end date are required'
       })
     }
 
@@ -56,6 +57,7 @@ router.post('/config', auth, async (req, res) => {
       internship.excludeLunchBreak = excludeLunchBreak !== undefined ? excludeLunchBreak : internship.excludeLunchBreak
       internship.lunchBreakDuration = lunchBreakDuration ?? internship.lunchBreakDuration
       internship.leaveAndAbsentDays = leaveAndAbsentDays ?? internship.leaveAndAbsentDays
+      internship.leaveAndAbsentDates = leaveAndAbsentDates || internship.leaveAndAbsentDates
 
       await internship.save()
     } else {
@@ -91,7 +93,8 @@ router.post('/config', auth, async (req, res) => {
         hoursPerDay: hoursPerDay ?? 8,
         excludeLunchBreak: excludeLunchBreak ?? false,
         lunchBreakDuration: lunchBreakDuration ?? 1,
-        leaveAndAbsentDays: leaveAndAbsentDays ?? 0
+        leaveAndAbsentDays: leaveAndAbsentDays ?? 0,
+        leaveAndAbsentDates: leaveAndAbsentDates || []
       })
 
       await internship.save()
@@ -111,7 +114,7 @@ router.post('/config', auth, async (req, res) => {
 router.delete('/config', auth, async (req, res) => {
   try {
     const internship = await Internship.findOneAndDelete({ userId: req.user.id })
-    
+
     if (!internship) {
       return res.status(404).json({ message: 'No internship configuration found' })
     }
