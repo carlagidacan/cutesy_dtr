@@ -117,7 +117,7 @@ const InternshipSetupModal = ({
                         ))}
                     </div>
 
-                    <div className="space-y-6 min-h-[400px]">
+                    <div className="space-y-6 min-h-[160px] sm:min-h-[200px]">
                         {/* ── Tab: Basic Info ─────────────────────────────────── */}
                         {activeTab === 'basic' && (
                             <div className="grid grid-cols-1 gap-6 animate-in slide-in-from-right-4 fade-in duration-300">

@@ -12,6 +12,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [userInfo, setUserInfo] = useState(null)
+  const [isExiting, setIsExiting] = useState(false)
   const navigate = useNavigate()
 
   const { email, password } = formData
@@ -44,17 +45,22 @@ const Login = () => {
 
   const handleModalClose = () => {
     setShowSuccessModal(false)
-    // Redirect to admin dashboard or home based on role
-    if (userInfo?.role === 'admin') {
-      navigate('/admin')
-    } else {
-      navigate('/')
-    }
+    setIsExiting(true)
+
+    // Wait for the exit animation to finish before navigating
+    setTimeout(() => {
+      // Redirect to admin dashboard or home based on role
+      if (userInfo?.role === 'admin') {
+        navigate('/admin')
+      } else {
+        navigate('/')
+      }
+    }, 400)
   }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#F9F6C4] via-white to-[#89D4FF] py-8 px-4 sm:py-12 sm:px-6 lg:px-8">
-      <div className="max-w-sm w-full space-y-6 sm:max-w-md sm:space-y-8">
+      <div className={`max-w-sm w-full space-y-6 sm:max-w-md sm:space-y-8 ${isExiting ? 'animate-fade-out-down' : 'animate-fade-in-up'}`}>
         <div className="rounded-2xl border border-white/70 bg-white/90 p-6 shadow-[0_24px_60px_rgba(68,172,255,0.18)] backdrop-blur-sm sm:p-8">
           <div className="mb-6 sm:mb-8">
             <div className="flex justify-center mb-4">

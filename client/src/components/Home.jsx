@@ -1012,7 +1012,7 @@ const Home = () => {
         onRemoveLeaveDate={handleRemoveLeaveDate}
       />
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8">
+      <div className="max-w-4xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8 animate-fade-in-up">
 
         {/* Current Time Display */}
         <div className="mb-6 rounded-xl border border-white/75 bg-white/90 p-4 text-center shadow-[0_20px_50px_rgba(68,172,255,0.16)] sm:mb-8 sm:rounded-2xl sm:p-6 lg:p-8">
