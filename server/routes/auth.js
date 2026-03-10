@@ -61,8 +61,8 @@ router.post('/signup', async (req, res) => {
     }
 
     const token = jwt.sign(
-      payload, 
-      process.env.JWT_SECRET || 'fallback-secret', 
+      payload,
+      process.env.JWT_SECRET || 'fallback-secret',
       { expiresIn: '24h' }
     )
 
@@ -72,7 +72,8 @@ router.post('/signup', async (req, res) => {
         id: user.id,
         name: user.name,
         company: user.company,
-        email: user.email
+        email: user.email,
+        role: user.role
       }
     })
   } catch (error) {
@@ -116,8 +117,8 @@ router.post('/login', async (req, res) => {
     }
 
     const token = jwt.sign(
-      payload, 
-      process.env.JWT_SECRET || 'fallback-secret', 
+      payload,
+      process.env.JWT_SECRET || 'fallback-secret',
       { expiresIn: '24h' }
     )
 
@@ -127,7 +128,8 @@ router.post('/login', async (req, res) => {
         id: user.id,
         name: user.name,
         company: user.company,
-        email: user.email
+        email: user.email,
+        role: user.role
       }
     })
   } catch (error) {
@@ -140,7 +142,7 @@ router.post('/login', async (req, res) => {
 router.get('/profile', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password')
-    
+
     if (!user) {
       return res.status(401).json({ message: 'Token is not valid' })
     }

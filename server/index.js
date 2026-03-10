@@ -6,6 +6,9 @@ import apiRoutes from './routes/api.js'
 import authRoutes from './routes/auth.js'
 import internshipRoutes from './routes/internship.js'
 import timeRecordsRoutes from './routes/timeRecords.js'
+import adminRoutes from './routes/admin.js'
+import User from './models/User.js'
+import bcrypt from 'bcryptjs'
 
 dotenv.config()
 
@@ -48,6 +51,31 @@ app.use('/api', apiRoutes)
 app.use('/api/auth', authRoutes)
 app.use('/api/internship', internshipRoutes)
 app.use('/api/records', timeRecordsRoutes)
+app.use('/api/admin', adminRoutes)
+
+// Seed default admin
+const seedAdmin = async () => {
+  try {
+    const adminExists = await User.findOne({ role: 'admin' })
+    if (!adminExists) {
+      const salt = await bcrypt.genSalt(10)
+      const hashedPassword = await bcrypt.hash('admin123', salt)
+
+      const admin = new User({
+        name: 'System Admin',
+        company: 'DTR System',
+        email: 'admin@dtr.com',
+        password: hashedPassword,
+        role: 'admin'
+      })
+
+      await admin.save()
+      console.log('Default admin account created: admin@dtr.com / admin123')
+    }
+  } catch (error) {
+    console.error('Failed to seed admin user:', error)
+  }
+}
 
 // Connect to MongoDB
 const connectDB = async () => {
@@ -66,6 +94,10 @@ const connectDB = async () => {
       })
       await dbConnectionPromise
       console.log('MongoDB connected successfully')
+
+      // Seed admin once connected
+      await seedAdmin()
+
       return mongoose.connection
     } else {
       console.log('MongoDB URI not found in environment variables')
@@ -82,7 +114,7 @@ const connectDB = async () => {
 // Start server
 const startServer = async () => {
   await connectDB()
-  
+
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`)
   })

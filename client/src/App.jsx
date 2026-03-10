@@ -4,6 +4,7 @@ import Home from './components/Home'
 import Login from './components/Login'
 import Signup from './components/Signup'
 import Profile from './components/Profile'
+import AdminDashboard from './components/AdminDashboard'
 import PrivateRoute from './components/PrivateRoute'
 import './App.css'
 
@@ -12,13 +13,13 @@ function App() {
     <Router>
       <div className="App">
         <Routes>
-          <Route 
-            path="/" 
+          <Route
+            path="/"
             element={
               <PrivateRoute>
                 <Home />
               </PrivateRoute>
-            } 
+            }
           />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
@@ -27,6 +28,14 @@ function App() {
             element={
               <PrivateRoute>
                 <Profile />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <PrivateRoute requireAdmin={true}>
+                <AdminDashboard />
               </PrivateRoute>
             }
           />

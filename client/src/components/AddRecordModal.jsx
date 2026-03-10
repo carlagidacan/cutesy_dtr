@@ -1,11 +1,11 @@
 import React from 'react'
 
-const AddRecordModal = ({ 
-  isOpen, 
-  onClose, 
-  editingRecord, 
-  recordForm, 
-  setRecordForm, 
+const AddRecordModal = ({
+  isOpen,
+  onClose,
+  editingRecord,
+  recordForm,
+  setRecordForm,
   onSubmit,
   calculateHoursFromTimes,
   onValidationError,
@@ -16,10 +16,10 @@ const AddRecordModal = ({
 
   const formatHoursAndMinutes = (decimalHours) => {
     if (decimalHours === 0) return '0h 0m'
-    
+
     const hours = Math.floor(decimalHours)
     const minutes = Math.round((decimalHours - hours) * 60)
-    
+
     if (hours === 0) {
       return `${minutes}m`
     } else if (minutes === 0) {
@@ -34,18 +34,42 @@ const AddRecordModal = ({
   }
 
   const handleSubmit = () => {
-    if (!recordForm.date || !recordForm.clockInTime || !recordForm.clockOutTime) {
-      onValidationError?.('Please fill in date, clock in time, and clock out time.')
+    const dates = recordForm.dates || []
+    if (!editingRecord && dates.length === 0) {
+      onValidationError?.('Please add at least one date.')
       return
     }
-    
+    if (editingRecord && !recordForm.date) {
+      onValidationError?.('Please fill in the date.')
+      return
+    }
+    if (!recordForm.clockInTime || !recordForm.clockOutTime) {
+      onValidationError?.('Please fill in clock in and clock out times.')
+      return
+    }
+
     const hours = calculateHoursFromTimes(recordForm.clockInTime, recordForm.clockOutTime)
     if (hours <= 0) {
       onValidationError?.('Clock out time must be after clock in time.')
       return
     }
-    
+
     onSubmit()
+  }
+
+  const handleAddDate = (dateValue) => {
+    if (!dateValue) return
+    const current = recordForm.dates || []
+    if (!current.includes(dateValue)) {
+      setRecordForm({ ...recordForm, dates: [...current, dateValue].sort(), dateInput: '' })
+    } else {
+      setRecordForm({ ...recordForm, dateInput: '' })
+    }
+  }
+
+  const handleRemoveDate = (dateToRemove) => {
+    const updated = (recordForm.dates || []).filter(d => d !== dateToRemove)
+    setRecordForm({ ...recordForm, dates: updated })
   }
 
   return (
@@ -75,20 +99,71 @@ const AddRecordModal = ({
               </svg>
             </button>
           </div>
-          
+
           <div className="space-y-4 sm:space-y-6">
-            <div className="group">
-              <label className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
-                Date
-              </label>
-              <input
-                type="date"
-                value={recordForm.date}
-                onChange={(e) => setRecordForm({ ...recordForm, date: e.target.value })}
-                className="block w-full rounded-2xl border-2 border-[#89D4FF]/40 px-4 py-3 text-base text-gray-900 transition-all duration-200 group-hover:border-[#89D4FF] focus:border-[#44ACFF] focus:outline-none focus:ring-4 focus:ring-[#89D4FF]/30 sm:px-5 sm:py-4 sm:text-lg"
-              />
-            </div>
-            
+            {/* Date input: single when editing, multi when adding */}
+            {editingRecord ? (
+              <div className="group">
+                <label className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
+                  Date
+                </label>
+                <input
+                  type="date"
+                  value={recordForm.date}
+                  onChange={(e) => setRecordForm({ ...recordForm, date: e.target.value })}
+                  className="block w-full rounded-2xl border-2 border-[#89D4FF]/40 px-4 py-3 text-base text-gray-900 transition-all duration-200 group-hover:border-[#89D4FF] focus:border-[#44ACFF] focus:outline-none focus:ring-4 focus:ring-[#89D4FF]/30 sm:px-5 sm:py-4 sm:text-lg"
+                />
+              </div>
+            ) : (
+              <div className="group">
+                <label className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
+                  Date(s)
+                  <span className="ml-2 text-xs text-gray-400 font-normal">Select one or more dates</span>
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={recordForm.dateInput || ''}
+                    onChange={(e) => setRecordForm({ ...recordForm, dateInput: e.target.value })}
+                    className="block flex-1 rounded-2xl border-2 border-[#89D4FF]/40 px-4 py-3 text-base text-gray-900 transition-all duration-200 group-hover:border-[#89D4FF] focus:border-[#44ACFF] focus:outline-none focus:ring-4 focus:ring-[#89D4FF]/30 sm:px-5 sm:py-4 sm:text-lg"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleAddDate(recordForm.dateInput)}
+                    disabled={!recordForm.dateInput || (recordForm.dates || []).includes(recordForm.dateInput)}
+                    className="flex-shrink-0 h-12 sm:h-14 px-4 sm:px-5 rounded-2xl bg-gradient-to-r from-[#44ACFF] to-[#89D4FF] text-white font-bold text-sm transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                  >
+                    Add
+                  </button>
+                </div>
+
+                {/* Selected dates badges */}
+                {(recordForm.dates || []).length > 0 ? (
+                  <div className="mt-3 flex flex-wrap gap-2 p-3 bg-[#F9F6C4]/30 rounded-2xl border border-[#89D4FF]/20">
+                    {(recordForm.dates || []).map((date) => (
+                      <span
+                        key={date}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white text-[#44ACFF] border border-[#89D4FF] text-sm font-medium shadow-sm"
+                      >
+                        {new Date(date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveDate(date)}
+                          className="p-0.5 rounded-full hover:bg-red-50 hover:text-red-500 transition-colors duration-200"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs text-gray-400 italic text-center">No dates added yet.</p>
+                )}
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="group">
                 <label className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
@@ -101,7 +176,7 @@ const AddRecordModal = ({
                   className="block w-full rounded-2xl border-2 border-[#89D4FF]/40 px-4 py-3 text-base text-gray-900 transition-all duration-200 group-hover:border-[#89D4FF] focus:border-[#44ACFF] focus:outline-none focus:ring-4 focus:ring-[#89D4FF]/30 sm:px-5 sm:py-4 sm:text-lg"
                 />
               </div>
-              
+
               <div className="group">
                 <label className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
                   Clock Out Time
@@ -114,7 +189,7 @@ const AddRecordModal = ({
                 />
               </div>
             </div>
-            
+
             {recordForm.clockInTime && recordForm.clockOutTime && (
               <div className="rounded-2xl border border-[#89D4FF]/40 bg-gradient-to-r from-[#F9F6C4]/70 to-[#89D4FF]/18 p-3 sm:p-4">
                 <div className="flex items-center justify-center space-x-2">
@@ -123,7 +198,10 @@ const AddRecordModal = ({
                   </svg>
                   <div className="text-center">
                     <p className="text-base font-bold text-slate-900 sm:text-lg">
-                      Total time: {formatHoursAndMinutes(calculateHoursFromTimes(recordForm.clockInTime, recordForm.clockOutTime))}
+                      {!editingRecord && (recordForm.dates || []).length > 1
+                        ? `${formatHoursAndMinutes(calculateHoursFromTimes(recordForm.clockInTime, recordForm.clockOutTime))} × ${(recordForm.dates || []).length} days`
+                        : `Total time: ${formatHoursAndMinutes(calculateHoursFromTimes(recordForm.clockInTime, recordForm.clockOutTime))}`
+                      }
                     </p>
                     {excludeLunchBreak && (
                       <p className="text-xs text-slate-600 mt-1">
@@ -134,7 +212,7 @@ const AddRecordModal = ({
                 </div>
               </div>
             )}
-            
+
             <div className="group">
               <label className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
                 Description <span className="text-gray-400 font-normal">(Optional)</span>
@@ -148,7 +226,7 @@ const AddRecordModal = ({
               />
             </div>
           </div>
-          
+
           <div className="mt-6 sm:mt-8 flex flex-col gap-3 sm:flex-row sm:gap-4">
             <button
               onClick={handleSubmit}
@@ -157,7 +235,14 @@ const AddRecordModal = ({
               <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
               </svg>
-              <span>{editingRecord ? 'Update Record' : 'Add Record'}</span>
+              <span>
+                {editingRecord
+                  ? 'Update Record'
+                  : (recordForm.dates || []).length > 1
+                    ? `Add ${(recordForm.dates || []).length} Records`
+                    : 'Add Record'
+                }
+              </span>
             </button>
           </div>
         </div>
