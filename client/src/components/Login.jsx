@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import SuccessModal from './SuccessModal'
+import { useTheme } from '../contexts/ThemeContext'
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -14,6 +15,7 @@ const Login = () => {
   const [userInfo, setUserInfo] = useState(null)
   const [isExiting, setIsExiting] = useState(false)
   const navigate = useNavigate()
+  const { setTheme } = useTheme()
 
   const { email, password } = formData
 
@@ -35,6 +37,7 @@ const Login = () => {
 
       // Store user info and show success modal
       setUserInfo(response.data.user)
+      setTheme(response.data.user?.theme)
       setShowSuccessModal(true)
     } catch (error) {
       setError(error.response?.data?.message || 'Login failed')
@@ -182,6 +185,7 @@ const Login = () => {
         title="Login Successful!"
         message="You have been successfully logged in."
         userName={userInfo?.name}
+        theme={userInfo?.theme}
       />
     </div>
   )

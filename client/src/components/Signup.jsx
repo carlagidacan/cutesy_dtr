@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import SuccessModal from './SuccessModal'
+import { useTheme } from '../contexts/ThemeContext'
 
 const Signup = () => {
   const [formData, setFormData] = useState({
@@ -16,6 +17,7 @@ const Signup = () => {
   const [userInfo, setUserInfo] = useState(null)
   const [isExiting, setIsExiting] = useState(false)
   const navigate = useNavigate()
+  const { setTheme } = useTheme()
 
   const { name, company, email, password } = formData
 
@@ -55,6 +57,7 @@ const Signup = () => {
 
       // Store user info and show success modal
       setUserInfo(response.data.user)
+      setTheme(response.data.user?.theme)
       setShowSuccessModal(true)
     } catch (error) {
       setError(error.response?.data?.message || 'Signup failed')
@@ -245,6 +248,7 @@ const Signup = () => {
         title="Sign Up Successful!"
         message="Your account has been created successfully."
         userName={userInfo?.name}
+        theme={userInfo?.theme}
       />
     </div>
   )

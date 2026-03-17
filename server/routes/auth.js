@@ -61,8 +61,8 @@ router.post('/signup', async (req, res) => {
     }
 
     const token = jwt.sign(
-      payload,
-      process.env.JWT_SECRET || 'fallback-secret',
+      payload, 
+      process.env.JWT_SECRET || 'fallback-secret', 
       { expiresIn: '24h' }
     )
 
@@ -73,7 +73,8 @@ router.post('/signup', async (req, res) => {
         name: user.name,
         company: user.company,
         email: user.email,
-        role: user.role
+        role: user.role,
+        theme: user.theme
       }
     })
   } catch (error) {
@@ -117,8 +118,8 @@ router.post('/login', async (req, res) => {
     }
 
     const token = jwt.sign(
-      payload,
-      process.env.JWT_SECRET || 'fallback-secret',
+      payload, 
+      process.env.JWT_SECRET || 'fallback-secret', 
       { expiresIn: '24h' }
     )
 
@@ -129,7 +130,8 @@ router.post('/login', async (req, res) => {
         name: user.name,
         company: user.company,
         email: user.email,
-        role: user.role
+        role: user.role,
+        theme: user.theme
       }
     })
   } catch (error) {
@@ -142,7 +144,7 @@ router.post('/login', async (req, res) => {
 router.get('/profile', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password')
-
+    
     if (!user) {
       return res.status(401).json({ message: 'Token is not valid' })
     }
@@ -157,7 +159,7 @@ router.get('/profile', auth, async (req, res) => {
 // Update user profile
 router.put('/profile', auth, async (req, res) => {
   try {
-    const { name, company, email, password } = req.body
+    const { name, company, email, password, theme } = req.body
 
     if (!name?.trim()) {
       return res.status(400).json({ message: 'Full name is required' })
@@ -173,6 +175,10 @@ router.put('/profile', auth, async (req, res) => {
 
     if (password && password.length < 6) {
       return res.status(400).json({ message: 'Password must be at least 6 characters long' })
+    }
+
+    if (theme && !['light', 'dark'].includes(theme)) {
+      return res.status(400).json({ message: 'Theme must be either light or dark' })
     }
 
     const normalizedEmail = normalizeEmail(email)
@@ -194,6 +200,7 @@ router.put('/profile', auth, async (req, res) => {
     user.name = name.trim()
     user.company = company.trim()
     user.email = normalizedEmail
+    user.theme = theme || user.theme || 'light'
 
     if (password) {
       const salt = await bcrypt.genSalt(10)
@@ -209,6 +216,8 @@ router.put('/profile', auth, async (req, res) => {
         name: user.name,
         company: user.company,
         email: user.email,
+        role: user.role,
+        theme: user.theme,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt
       }

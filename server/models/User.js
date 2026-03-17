@@ -37,6 +37,11 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ['user', 'admin'],
     default: 'user'
+  },
+  theme: {
+    type: String,
+    enum: ['light', 'dark'],
+    default: 'light'
   }
 }, {
   timestamps: true

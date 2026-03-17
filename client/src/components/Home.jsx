@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import SuccessModal from './SuccessModal'
@@ -6,6 +6,7 @@ import AddRecordModal from './AddRecordModal'
 import InternshipSetupModal from './InternshipSetupModal'
 import AlertModal from './AlertModal'
 import { generateAttendanceReport } from '../utils/reportGenerator'
+import { useTheme } from '../contexts/ThemeContext'
 
 const Home = () => {
   const [user, setUser] = useState(null)
@@ -43,6 +44,7 @@ const Home = () => {
   const [recordToDelete, setRecordToDelete] = useState(null)
   const [deleteConfirmationDate, setDeleteConfirmationDate] = useState('')
   const [isGeneratingReport, setIsGeneratingReport] = useState(false)
+  const [isUpdatingTheme, setIsUpdatingTheme] = useState(false)
   const [currentRecordsPage, setCurrentRecordsPage] = useState(1)
   const [selectedRecords, setSelectedRecords] = useState([])
   const [isDeletingMultiple, setIsDeletingMultiple] = useState(false)
@@ -67,6 +69,8 @@ const Home = () => {
   const [newLeaveDate, setNewLeaveDate] = useState('')
   const [activeSetupTab, setActiveSetupTab] = useState('basic')
   const navigate = useNavigate()
+  const { theme, setTheme } = useTheme()
+  const isDarkMode = theme === 'dark'
   const recordsPerPage = 5
 
   const formatHoursAndMinutes = (decimalHours) => {
@@ -147,6 +151,7 @@ const Home = () => {
       // If token is invalid, redirect to login
       if (error.response?.status === 401) {
         localStorage.removeItem('token')
+        setTheme('light')
         navigate('/login')
       }
     }
@@ -255,17 +260,11 @@ const Home = () => {
         return total + parseFloat(record.hours || 0)
       }, 0)
 
-      console.log('Calculated total hours:', calculatedTotal)
-      console.log('Records:', recordsResponse.data)
-
       // Try to get total from backend, but use calculated total as fallback
       try {
         const totalResponse = await axios.get('/api/records/total', {
           headers: { Authorization: `Bearer ${token}` }
         })
-        console.log('Backend total response:', totalResponse.data)
-        const backendTotal = totalResponse.data.totalHours || totalResponse.data.total || calculatedTotal
-        setTotalHoursWorked(backendTotal)
 
         const effectiveRequiredHours = configOverride?.requiredHours?.toString() ?? requiredHours
         const effectiveStartDate = configOverride?.startDate?.split?.('T')?.[0] ?? startDate
@@ -890,8 +889,47 @@ const Home = () => {
     setShowLogoutConfirm(true)
   }
 
+  const handleNavbarThemeToggle = async () => {
+    if (!user || isUpdatingTheme) {
+      return
+    }
+
+    const previousTheme = theme
+    const nextTheme = theme === 'dark' ? 'light' : 'dark'
+
+    try {
+      setIsUpdatingTheme(true)
+      setTheme(nextTheme)
+
+      const token = localStorage.getItem('token')
+      const response = await axios.put(
+        '/api/auth/profile',
+        {
+          name: user.name || '',
+          company: user.company || '',
+          email: user.email || '',
+          password: '',
+          theme: nextTheme
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      )
+
+      if (response.data?.user) {
+        setUser((current) => ({ ...current, ...response.data.user }))
+      }
+    } catch (error) {
+      setTheme(previousTheme)
+      openAlertModal(error.response?.data?.message || 'Unable to update theme. Please try again.', 'Theme Update Failed')
+    } finally {
+      setIsUpdatingTheme(false)
+    }
+  }
+
   const confirmLogout = () => {
     localStorage.removeItem('token')
+    setTheme('light')
     navigate('/login')
   }
 
@@ -946,6 +984,24 @@ const Home = () => {
               </button>
             </div>
             <div className="flex items-center space-x-1 sm:space-x-4 flex-shrink-0">
+              <button
+                type="button"
+                onClick={handleNavbarThemeToggle}
+                disabled={isUpdatingTheme}
+                className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition-all duration-300 focus:outline-none focus:ring-4 sm:h-10 sm:w-10 ${theme === 'dark' ? 'border-[#FFD24A]/80 bg-[#FFD24A] text-slate-900 focus:ring-[#FFD24A]/25' : 'border-slate-300 bg-white text-slate-700 focus:ring-slate-300/35'} ${isUpdatingTheme ? 'cursor-not-allowed opacity-70' : 'hover:scale-105'}`}
+                aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              >
+                {theme === 'dark' ? (
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.364 6.364l-1.414-1.414M7.05 7.05 5.636 5.636m12.728 0-1.414 1.414M7.05 16.95l-1.414 1.414M12 8a4 4 0 100 8 4 4 0 000-8z" />
+                  </svg>
+                ) : (
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12.79A9 9 0 1111.21 3a7 7 0 109.79 9.79z" />
+                  </svg>
+                )}
+              </button>
               <button
                 onClick={() => setShowConfig(!showConfig)}
                 className="flex items-center space-x-1 rounded-lg bg-gradient-to-r from-[#44ACFF] to-[#89D4FF] px-2.5 py-1.5 text-[10px] font-medium text-slate-900 shadow-[0_10px_24px_rgba(68,172,255,0.22)] transition-all duration-200 hover:brightness-105 sm:space-x-2 sm:px-4 sm:py-2 sm:text-base"
@@ -1103,7 +1159,7 @@ const Home = () => {
         </div>
 
         {/* Recent Time Records */}
-        <div className="rounded-xl border border-white/75 bg-white/90 p-4 shadow-[0_20px_50px_rgba(68,172,255,0.16)] sm:rounded-2xl sm:p-6">
+        <div className={`rounded-xl border p-4 shadow-[0_20px_50px_rgba(68,172,255,0.16)] sm:rounded-2xl sm:p-6 ${isDarkMode ? 'border-cyan-500/30 bg-black' : 'border-white/75 bg-white/90'}`}>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 sm:mb-4 space-y-2 sm:space-y-0">
             <div className="flex items-center space-x-4">
               <h2 className="text-lg sm:text-xl font-bold text-gray-900">Recent Records</h2>
@@ -1149,7 +1205,7 @@ const Home = () => {
           {timeRecords.length > 0 ? (
             <div className="space-y-2 sm:space-y-3">
               {paginatedRecords.map((record) => (
-                <div key={record._id} className={`flex items-center justify-between rounded-lg p-3 transition-colors duration-200 sm:p-4 border ${selectedRecords.includes(record._id) ? 'border-[#44ACFF] bg-[#89D4FF]/20 shadow-sm' : 'border-transparent bg-[#F9F6C4]/45 hover:bg-[#89D4FF]/12'}`}>
+                <div key={record._id} className={`flex items-center justify-between rounded-lg p-3 transition-colors duration-200 sm:p-4 border ${selectedRecords.includes(record._id) ? (isDarkMode ? 'border-cyan-300/70 bg-cyan-500/30 shadow-sm' : 'border-[#44ACFF] bg-[#89D4FF]/20 shadow-sm') : (isDarkMode ? 'border-cyan-500/40 bg-cyan-500/20 hover:bg-cyan-500/25' : 'border-transparent bg-[#F9F6C4]/45 hover:bg-[#89D4FF]/12')}`}>
                   <div className="flex-1 min-w-0 flex items-center mb-[2px] mt-[1px]">
                     <div className="mr-3 w-5">
                       <input
@@ -1255,6 +1311,7 @@ const Home = () => {
         onClose={() => setShowSuccessModal(false)}
         title="Configuration Saved!"
         message="Your internship configuration has been saved successfully."
+        theme={theme}
       />
 
       <AlertModal
@@ -1262,6 +1319,7 @@ const Home = () => {
         onClose={closeAlertModal}
         title={alertModal.title}
         message={alertModal.message}
+        theme={theme}
       />
 
       {showLogoutConfirm && (

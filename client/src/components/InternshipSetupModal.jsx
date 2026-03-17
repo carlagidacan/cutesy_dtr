@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { useTheme } from '../contexts/ThemeContext'
 
 const InternshipSetupModal = ({
     isOpen,
@@ -30,6 +31,8 @@ const InternshipSetupModal = ({
     onRemoveLeaveDate,
 }) => {
     const [activeTab, setActiveTab] = useState('basic')
+    const { theme } = useTheme()
+    const isDarkMode = theme === 'dark'
 
     if (!isOpen) return null
 
@@ -101,7 +104,7 @@ const InternshipSetupModal = ({
                     </div>
 
                     {/* Tabs Navigation */}
-                    <div className="flex space-x-2 border-b-2 border-slate-100 mb-6 sm:mb-8 overflow-x-auto pb-2 scrollbar-hide">
+                    <div className={`flex space-x-2 border-b-2 mb-6 sm:mb-8 overflow-x-auto pb-2 scrollbar-hide ${isDarkMode ? 'border-cyan-500/30' : 'border-slate-100'}`}>
                         {[
                             { id: 'basic', label: 'Basic Info' },
                             { id: 'schedule', label: 'Schedule' },
@@ -110,7 +113,7 @@ const InternshipSetupModal = ({
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
-                                className={`flex-shrink-0 px-4 py-2 font-semibold text-sm sm:text-base rounded-t-xl transition-all duration-200 border-b-4 ${activeTab === tab.id ? 'border-[#44ACFF] text-[#44ACFF] bg-[#89D4FF]/10' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+                                className={`flex-shrink-0 px-4 py-2 font-semibold text-sm sm:text-base rounded-t-xl transition-all duration-200 ${activeTab === tab.id ? (isDarkMode ? 'border-b-4 border-cyan-300 text-cyan-200 bg-cyan-500/20' : 'border-b-4 border-[#44ACFF] text-[#44ACFF] bg-[#89D4FF]/10') : (isDarkMode ? 'border-b-0 text-cyan-100/70 hover:text-cyan-100 hover:bg-cyan-900/35' : 'border-b-0 text-gray-500 hover:text-gray-700 hover:bg-gray-50')}`}
                             >
                                 {tab.label}
                             </button>

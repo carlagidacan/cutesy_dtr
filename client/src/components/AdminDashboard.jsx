@@ -3,6 +3,7 @@ import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
 import SuccessModal from './SuccessModal'
 import AlertModal from './AlertModal'
+import { useTheme } from '../contexts/ThemeContext'
 
 const AdminDashboard = () => {
     const [users, setUsers] = useState([])
@@ -18,6 +19,7 @@ const AdminDashboard = () => {
     const [alertModal, setAlertModal] = useState({ isOpen: false, title: '', message: '' })
 
     const navigate = useNavigate()
+    const { theme, setTheme } = useTheme()
 
     useEffect(() => {
         fetchUsers()
@@ -45,6 +47,7 @@ const AdminDashboard = () => {
 
     const handleLogout = () => {
         localStorage.removeItem('token')
+        setTheme('light')
         navigate('/login')
     }
 
@@ -278,6 +281,7 @@ const AdminDashboard = () => {
                 onClose={() => setSuccessModal({ ...successModal, isOpen: false })}
                 title={successModal.title}
                 message={successModal.message}
+                theme={theme}
             />
 
             {/* Alert Modal */}
@@ -286,6 +290,7 @@ const AdminDashboard = () => {
                 onClose={() => setAlertModal({ ...alertModal, isOpen: false })}
                 title={alertModal.title}
                 message={alertModal.message}
+                theme={theme}
             />
         </div>
     )
