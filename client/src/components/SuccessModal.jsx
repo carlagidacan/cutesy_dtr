@@ -18,7 +18,7 @@ const SuccessModal = ({ isOpen, onClose, title, message, userName = '', theme = 
 
   const modalClasses = isDarkMode
     ? {
-        panel: 'inline-block align-bottom rounded-2xl border border-cyan-500/45 bg-black px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-sm sm:w-full sm:p-6',
+        panel: 'inline-block align-bottom rounded-2xl border border-cyan-500/45 bg-[#121212] px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-sm sm:w-full sm:p-6',
         iconWrap: 'mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-cyan-950/60',
         icon: 'h-8 w-8 text-cyan-300',
         title: 'text-lg leading-6 font-bold text-cyan-50 mb-2',

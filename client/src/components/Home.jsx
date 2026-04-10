@@ -5,6 +5,7 @@ import SuccessModal from './SuccessModal'
 import AddRecordModal from './AddRecordModal'
 import InternshipSetupModal from './InternshipSetupModal'
 import AlertModal from './AlertModal'
+import DownloadReportModal from './DownloadReportModal'
 import { generateAttendanceReport } from '../utils/reportGenerator'
 import { useTheme } from '../contexts/ThemeContext'
 
@@ -17,6 +18,7 @@ const Home = () => {
   const [estimatedEndDate, setEstimatedEndDate] = useState('')
   const [showAddRecord, setShowAddRecord] = useState(false)
   const [showConfig, setShowConfig] = useState(false)
+  const [showDownloadModal, setShowDownloadModal] = useState(false)
   const [timeRecords, setTimeRecords] = useState([])
   const [totalHoursWorked, setTotalHoursWorked] = useState(0)
   const [editingRecord, setEditingRecord] = useState(null)
@@ -38,6 +40,7 @@ const Home = () => {
     sunday: false
   })
   const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [successModalContent, setSuccessModalContent] = useState({ title: '', message: '' })
   const [alertModal, setAlertModal] = useState({ isOpen: false, title: '', message: '' })
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
@@ -356,6 +359,9 @@ const Home = () => {
       // Refresh records
       await fetchTimeRecords()
 
+      setSuccessModalContent({ title: 'Success!', message: 'Record(s) added successfully.' })
+      setShowSuccessModal(true)
+
     } catch (error) {
       console.error('Error adding time record:', error)
       openAlertModal(error.response?.data?.message || 'Error adding record. Please try again.')
@@ -389,6 +395,9 @@ const Home = () => {
 
       // Refresh records
       await fetchTimeRecords()
+
+      setSuccessModalContent({ title: 'Success!', message: 'Record updated successfully.' })
+      setShowSuccessModal(true)
 
     } catch (error) {
       console.error('Error updating time record:', error)
@@ -530,6 +539,7 @@ const Home = () => {
       // Update progress summary after successful save
       calculateEndDateWithProgress(requiredHours, startDate, workingDays, totalHoursWorked, excludeLunchBreak, lunchBreakDuration, holidays, timeRecords, leaveAndAbsentDates)
 
+      setSuccessModalContent({ title: 'Configuration Saved!', message: 'Your internship configuration has been saved successfully.' })
       setShowSuccessModal(true)
       setShowConfig(false)
 
@@ -939,7 +949,43 @@ const Home = () => {
     currentRecordsPage * recordsPerPage
   )
 
-  const downloadAttendanceReport = async () => {
+  const getDateRangeFromFilter = (options) => {
+    const { filterType, selectedWeek, selectedMonth } = options
+
+    if (filterType === 'monthly' && selectedMonth) {
+      const [year, month] = selectedMonth.split('-')
+      const start = new Date(parseInt(year), parseInt(month) - 1, 1)
+      const end = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999)
+      return { startDate: start, endDate: end }
+    }
+
+    if (filterType === 'weekly' && selectedWeek) {
+      const [yearStr, weekStr] = selectedWeek.split('-W')
+      const year = parseInt(yearStr, 10)
+      const week = parseInt(weekStr, 10)
+
+      const simple = new Date(year, 0, 1 + (week - 1) * 7)
+      const dow = simple.getDay()
+      const ISOweekStart = simple
+      if (dow <= 4) {
+        ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1)
+      } else {
+        ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay())
+      }
+
+      const start = new Date(ISOweekStart)
+      start.setHours(0, 0, 0, 0)
+
+      const end = new Date(start)
+      end.setDate(start.getDate() + 6)
+      end.setHours(23, 59, 59, 999)
+      return { startDate: start, endDate: end }
+    }
+
+    return null
+  }
+
+  const handleDownloadReport = async (options) => {
     if (isGeneratingReport || timeRecords.length === 0) {
       if (timeRecords.length === 0) {
         openAlertModal('No time records available to include in the report.')
@@ -947,11 +993,30 @@ const Home = () => {
       return
     }
 
+    const range = getDateRangeFromFilter(options)
+    let filteredRecords = timeRecords
+    let previousRecords = []
+
+    if (range) {
+      filteredRecords = timeRecords.filter(r => {
+        const d = new Date(r.date)
+        return d >= range.startDate && d <= range.endDate
+      })
+      previousRecords = timeRecords.filter(r => {
+        const d = new Date(r.date)
+        return d < range.startDate
+      })
+    }
+
+    if (filteredRecords.length === 0) {
+      openAlertModal('No time records available for the selected period.')
+      return
+    }
+
     try {
       setIsGeneratingReport(true)
-      // TODO: Implement logic to retrieve previous total from database/localStorage
-      const previousTotal = 0 // This could be retrieved from historical data
-      await generateAttendanceReport({ user, timeRecords, totalHoursWorked, previousTotal })
+      const previousTotal = previousRecords.reduce((total, r) => total + (parseFloat(r.hours) || 0), 0)
+      await generateAttendanceReport({ user, timeRecords: filteredRecords, totalHoursWorked, previousTotal })
       setMessage({ text: 'PDF report downloaded successfully!', type: 'success' })
     } catch (error) {
       console.error('Error generating PDF:', error)
@@ -1067,6 +1132,13 @@ const Home = () => {
         onAddLeaveDate={handleAddLeaveDate}
         onRemoveLeaveDate={handleRemoveLeaveDate}
       />
+
+      <DownloadReportModal
+        isOpen={showDownloadModal}
+        onClose={() => setShowDownloadModal(false)}
+        onDownload={handleDownloadReport}
+      />
+
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8 animate-fade-in-up">
 
@@ -1159,21 +1231,47 @@ const Home = () => {
         </div>
 
         {/* Recent Time Records */}
-        <div className={`rounded-xl border p-4 shadow-[0_20px_50px_rgba(68,172,255,0.16)] sm:rounded-2xl sm:p-6 ${isDarkMode ? 'border-cyan-500/30 bg-black' : 'border-white/75 bg-white/90'}`}>
+        <div className={`rounded-xl border p-4 shadow-[0_20px_50px_rgba(68,172,255,0.16)] sm:rounded-2xl sm:p-6 ${isDarkMode ? 'border-cyan-500/30 bg-[#121212]' : 'border-white/75 bg-white/90'}`}>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 sm:mb-4 space-y-2 sm:space-y-0">
             <div className="flex items-center space-x-4">
               <h2 className="text-lg sm:text-xl font-bold text-gray-900">Recent Records</h2>
-              {timeRecords.length > 0 && (
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={paginatedRecords.length > 0 && selectedRecords.length >= paginatedRecords.length && paginatedRecords.every(r => selectedRecords.includes(r._id))}
-                    onChange={toggleAllRecordsSelection}
-                    className="w-4 h-4 rounded border-gray-300 text-[#44ACFF] focus:ring-[#44ACFF]"
-                  />
-                  <span className="text-sm text-gray-600">Select All Page</span>
-                </label>
-              )}
+              {timeRecords.length > 0 && (() => {
+                const isAllSelected = paginatedRecords.length > 0 && selectedRecords.length >= paginatedRecords.length && paginatedRecords.every(r => selectedRecords.includes(r._id));
+                return (
+                  <label className={`group relative flex items-center gap-2 cursor-pointer rounded-lg px-2.5 py-1.5 transition-all duration-300 hover:scale-105 active:scale-95 ${
+                    isAllSelected
+                      ? (isDarkMode ? 'bg-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.15)] ring-1 ring-cyan-500/50' : 'bg-[#44ACFF]/10 shadow-sm ring-1 ring-[#44ACFF]/30')
+                      : (isDarkMode ? 'bg-gray-800/50 hover:bg-gray-700/60' : 'bg-gray-100 hover:bg-gray-200/80')
+                  }`}>
+                    <div className={`relative flex h-4 w-4 items-center justify-center rounded border-2 transition-all duration-300 ${
+                      isAllSelected
+                        ? (isDarkMode ? 'border-cyan-400 bg-cyan-500/20' : 'border-[#44ACFF] bg-[#44ACFF]')
+                        : (isDarkMode ? 'border-gray-500 group-hover:border-cyan-500/50' : 'border-gray-300 group-hover:border-[#44ACFF]/50')
+                    }`}>
+                      <input
+                        type="checkbox"
+                        className="absolute opacity-0 h-0 w-0 cursor-pointer"
+                        checked={isAllSelected}
+                        onChange={toggleAllRecordsSelection}
+                      />
+                      <svg className={`h-3 w-3 transition-all duration-300 ${
+                        isAllSelected 
+                          ? (isDarkMode ? 'text-cyan-300 scale-100 opacity-100' : 'text-white scale-100 opacity-100') 
+                          : 'scale-50 opacity-0'
+                      }`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <span className={`text-xs sm:text-sm font-semibold tracking-wide transition-colors duration-300 select-none ${
+                      isAllSelected
+                        ? (isDarkMode ? 'text-cyan-100' : 'text-[#44ACFF]')
+                        : (isDarkMode ? 'text-gray-400 group-hover:text-cyan-100' : 'text-gray-500 group-hover:text-slate-700')
+                    }`}>
+                      {isAllSelected ? "Deselect All" : "Select All Page"}
+                    </span>
+                  </label>
+                );
+              })()}
             </div>
             <div className="flex items-center space-x-2 w-full sm:w-auto">
               {selectedRecords.length > 0 && (
@@ -1188,7 +1286,7 @@ const Home = () => {
                 </button>
               )}
               <button
-                onClick={downloadAttendanceReport}
+                onClick={() => setShowDownloadModal(true)}
                 disabled={isGeneratingReport || timeRecords.length === 0}
                 className="flex flex-1 items-center justify-center space-x-2 rounded-xl bg-gradient-to-r from-[#44ACFF] to-[#89D4FF] px-4 py-2 text-sm font-semibold text-slate-900 shadow-[0_16px_32px_rgba(68,172,255,0.2)] transition-all duration-200 hover:scale-[1.02] hover:shadow-[0_20px_36px_rgba(68,172,255,0.24)] disabled:cursor-not-allowed disabled:transform-none disabled:from-gray-300 disabled:to-gray-400 sm:w-auto sm:flex-initial"
               >
@@ -1309,8 +1407,8 @@ const Home = () => {
       <SuccessModal
         isOpen={showSuccessModal}
         onClose={() => setShowSuccessModal(false)}
-        title="Configuration Saved!"
-        message="Your internship configuration has been saved successfully."
+        title={successModalContent.title || "Success!"}
+        message={successModalContent.message}
         theme={theme}
       />
 

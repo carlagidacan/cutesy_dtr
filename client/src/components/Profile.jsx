@@ -157,19 +157,19 @@ const Profile = () => {
 	const themeClasses = isDarkMode
 		? {
 				page: 'min-h-screen bg-gradient-to-br from-black via-[#03141a] to-[#052834] px-3 py-5 text-cyan-100 sm:px-6 sm:py-8 lg:px-8',
-				card: 'rounded-3xl border border-cyan-500/35 bg-black/85 p-5 shadow-[0_24px_60px_rgba(6,182,212,0.15)] backdrop-blur-sm sm:p-6',
+				card: 'rounded-3xl border border-cyan-500/35 bg-[#121212]/85 p-5 shadow-[0_24px_60px_rgba(6,182,212,0.15)] backdrop-blur-sm sm:p-6',
 				primaryText: 'text-cyan-50',
 				secondaryText: 'text-cyan-100/75',
 				mutedText: 'text-cyan-100/60',
 				accentLabel: 'text-cyan-300',
 				avatar: 'mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-black text-2xl font-bold text-cyan-50 shadow-[0_16px_40px_rgba(6,182,212,0.35)] sm:h-24 sm:w-24 sm:text-3xl',
-				backButton: 'inline-flex w-full items-center justify-center rounded-xl border border-cyan-500/50 bg-black/70 px-4 py-2.5 text-sm font-semibold text-cyan-100 transition-colors duration-200 hover:bg-cyan-950/60 sm:w-auto sm:justify-start',
+				backButton: 'inline-flex w-full items-center justify-center rounded-xl border border-cyan-500/50 bg-[#121212]/70 px-4 py-2.5 text-sm font-semibold text-cyan-100 transition-colors duration-200 hover:bg-cyan-950/60 sm:w-auto sm:justify-start',
 				infoCardOne: 'rounded-2xl border border-cyan-400/30 bg-cyan-950/35 p-4',
 				infoCardTwo: 'rounded-2xl border border-cyan-400/35 bg-cyan-900/25 p-4',
-				infoCardThree: 'rounded-2xl border border-cyan-500/30 bg-black/70 p-4',
-				input: 'block w-full rounded-2xl border-2 border-cyan-500/45 bg-black/50 px-4 py-3.5 text-base text-cyan-50 transition-all duration-200 placeholder:text-cyan-200/45 group-hover:border-cyan-400 focus:border-cyan-300 focus:outline-none focus:ring-4 focus:ring-cyan-500/20 sm:px-5 sm:py-4',
+				infoCardThree: 'rounded-2xl border border-cyan-500/30 bg-[#121212]/70 p-4',
+				input: 'block w-full rounded-2xl border-2 border-cyan-500/45 bg-[#121212]/50 px-4 py-3.5 text-base text-cyan-50 transition-all duration-200 placeholder:text-cyan-200/45 group-hover:border-cyan-400 focus:border-cyan-300 focus:outline-none focus:ring-4 focus:ring-cyan-500/20 sm:px-5 sm:py-4',
 				noteCard: 'rounded-2xl border border-cyan-500/40 bg-gradient-to-r from-black/80 to-cyan-950/55 p-4',
-				cancelButton: 'w-full rounded-2xl border border-cyan-500/45 bg-black/70 px-6 py-3 text-sm font-semibold text-cyan-100 transition-colors duration-200 hover:bg-cyan-950/60 sm:w-auto',
+				cancelButton: 'w-full rounded-2xl border border-cyan-500/45 bg-[#121212]/70 px-6 py-3 text-sm font-semibold text-cyan-100 transition-colors duration-200 hover:bg-cyan-950/60 sm:w-auto',
 				saveButton: 'flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-black via-cyan-900 to-cyan-500 px-6 py-3 text-sm font-bold text-cyan-50 shadow-[0_18px_36px_rgba(6,182,212,0.22)] transition-all duration-200 hover:scale-[1.02] hover:shadow-[0_22px_42px_rgba(6,182,212,0.3)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto'
 		  }
 		: {

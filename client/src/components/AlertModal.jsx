@@ -7,7 +7,7 @@ const AlertModal = ({ isOpen, onClose, title, message, theme = 'light' }) => {
 
   const modalClasses = isDarkMode
     ? {
-        panel: 'relative inline-block w-full max-w-md overflow-hidden rounded-3xl border border-cyan-500/45 bg-black px-6 py-6 text-left align-middle shadow-2xl transition-all',
+        panel: 'relative inline-block w-full max-w-md overflow-hidden rounded-3xl border border-cyan-500/45 bg-[#121212] px-6 py-6 text-left align-middle shadow-2xl transition-all',
         iconWrap: 'mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-cyan-950/55',
         icon: 'h-8 w-8 text-cyan-300',
         title: 'text-xl font-bold text-cyan-50',

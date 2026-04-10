@@ -30,7 +30,7 @@ body.theme-dark,
 html.theme-dark,
 body.theme-dark #root,
 body.theme-dark .App {
-  background: radial-gradient(circle at 20% 10%, #06384a 0%, #01090f 45%, #000000 100%) !important;
+  background: radial-gradient(circle at 20% 10%, #06384a 0%, #01090f 45%, #121212 100%) !important;
   color: #d9fcff !important;
 }
 
@@ -41,7 +41,7 @@ body.theme-dark [class*='bg-amber-'],
 body.theme-dark [class*='bg-[#F9F6C4]'],
 body.theme-dark [class*='bg-[#89D4FF]'],
 body.theme-dark [class*='bg-[#FE9EC7]'] {
-  background-color: #02070c !important;
+  background-color: #121212 !important;
   background-image: none !important;
 }
 
@@ -53,7 +53,7 @@ body.theme-dark [class*='to-[#FE9EC7]'],
 body.theme-dark [class*='to-[#89D4FF]'],
 body.theme-dark [class*='via-[#89D4FF]'],
 body.theme-dark [class*='via-[#F9F6C4]'] {
-  background-image: linear-gradient(130deg, #02070c 0%, #07313f 60%, #06b6d4 100%) !important;
+  background-image: linear-gradient(130deg, #121212 0%, #07313f 60%, #06b6d4 100%) !important;
 }
 
 body.theme-dark [class*='from-red-'],
@@ -100,6 +100,7 @@ body.theme-dark select {
   background: #010b11 !important;
   color: #d9fcff !important;
   border-color: rgba(34, 211, 238, 0.45) !important;
+  color-scheme: dark !important;
 }
 
 body.theme-dark input::placeholder,
