@@ -22,15 +22,22 @@ router.post('/generate-reflection', authMiddleware, async (req, res) => {
     const genAI = new GoogleGenerativeAI(apiKey)
     const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" })
 
-    const prompt = `You are helping a student intern fill out a weekly accomplishment report form.
+    const prompt = `You are helping a student intern write a weekly accomplishment report.
 
-Raw daily logs (may have repeated or similar tasks):
+Here are the tasks the student did this week (some may repeat):
 "${tasks}"
+
+Tone and style rules:
+- Write in first person, as if the student is genuinely sharing their experience.
+- Use simple, plain language — avoid technical jargon and overly formal phrases.
+- Keep sentences short and clear, but maintain a calm and composed tone suitable for academic submission.
+- Do NOT use exclamation marks anywhere. The tone should be sincere and reflective, not excited or dramatic.
+- Do not exaggerate. Keep it honest and grounded.
 
 Return ONLY a valid JSON object in this exact format (no markdown, no explanation):
 {
-  "tasksSummary": "1-2 sentence summary of the week's tasks with no redundancy",
-  "reflection": "ONE short paragraph (4-6 sentences) in first person addressing: new skills learned, how school knowledge was applied at work, difficulties encountered, and what skills would have helped."
+  "tasksSummary": "1-2 sentences summarizing what the student did this week. Remove repeated tasks and keep it straightforward.",
+  "reflection": "ONE short paragraph (3-5 sentences) in first person. Cover what was learned, how school knowledge was applied, any difficulties encountered, and what the student wishes they had known or practiced beforehand. Write as a student would — simply and sincerely, without exclamation marks."
 }`
 
     const result = await model.generateContent(prompt)
