@@ -2,7 +2,7 @@ import attendanceTemplateImage from '../assets/ACO-CI-F-017 ATTENDANCE REPORT_pa
 
 export const ATTENDANCE_TEMPLATE_BASE64 = ''
 
-const TEMPLATE_CONFIG = {
+const attendance_ATTENDANCE_TEMPLATE_CONFIG = {
 	template: {
 		src: ATTENDANCE_TEMPLATE_BASE64 || attendanceTemplateImage,
 		imageType: 'JPEG',
@@ -77,4 +77,4 @@ const TEMPLATE_CONFIG = {
 	}
 }
 
-export default TEMPLATE_CONFIG
+export default attendance_ATTENDANCE_TEMPLATE_CONFIG

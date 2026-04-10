@@ -7,6 +7,7 @@ import authRoutes from './routes/auth.js'
 import internshipRoutes from './routes/internship.js'
 import timeRecordsRoutes from './routes/timeRecords.js'
 import adminRoutes from './routes/admin.js'
+import reportRoutes from './routes/report.js'
 import User from './models/User.js'
 import bcrypt from 'bcryptjs'
 
@@ -52,6 +53,7 @@ app.use('/api/auth', authRoutes)
 app.use('/api/internship', internshipRoutes)
 app.use('/api/records', timeRecordsRoutes)
 app.use('/api/admin', adminRoutes)
+app.use('/api/reports', reportRoutes)
 
 // Seed default admin
 const seedAdmin = async () => {

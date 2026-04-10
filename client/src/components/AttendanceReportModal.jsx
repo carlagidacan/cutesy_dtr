@@ -1,13 +1,41 @@
 import React, { useState } from 'react'
 import { useTheme } from '../contexts/ThemeContext'
 
-const DownloadReportModal = ({ isOpen, onClose, onDownload }) => {
+const AttendanceReportModal = ({ isOpen, onClose, onDownload, timeRecords = [] }) => {
   const { theme } = useTheme()
   const isDarkMode = theme === 'dark'
+
+  // Compute min/max week and month from actual records
+  const toISOWeek = (date) => {
+    const d = new Date(date)
+    const day = d.getDay() || 7
+    d.setDate(d.getDate() + 4 - day)
+    const yearStart = new Date(d.getFullYear(), 0, 1)
+    const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7)
+    return `${d.getFullYear()}-W${String(weekNo).padStart(2, '0')}`
+  }
+
+  const toISOMonth = (date) => {
+    const d = new Date(date)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  }
+
+  const recordDates = timeRecords.map(r => new Date(r.date)).sort((a, b) => a - b)
+  const earliestDate = recordDates[0]
+  const latestDate = recordDates[recordDates.length - 1]
+
+  const minWeek = earliestDate ? toISOWeek(earliestDate) : ''
+  const maxWeek = latestDate ? toISOWeek(latestDate) : ''
+  const minMonth = earliestDate ? toISOMonth(earliestDate) : ''
+  const maxMonth = latestDate ? toISOMonth(latestDate) : ''
+
+  const weeksWithRecords = new Set(timeRecords.map(r => toISOWeek(r.date)))
+  const monthsWithRecords = new Set(timeRecords.map(r => toISOMonth(r.date)))
   
   const [filterType, setFilterType] = useState('all') // 'all', 'weekly', 'monthly'
   const [selectedWeek, setSelectedWeek] = useState('')
   const [selectedMonth, setSelectedMonth] = useState('')
+  const [inputError, setInputError] = useState('')
   
   if (!isOpen) return null
 
@@ -34,6 +62,12 @@ const DownloadReportModal = ({ isOpen, onClose, onDownload }) => {
           </button>
         </div>
 
+        {inputError && (
+          <div className={`mb-4 rounded-xl p-3 text-sm border ${isDarkMode ? 'bg-red-950/50 border-red-500/50 text-red-200' : 'bg-red-50 border-red-200 text-red-600'}`}>
+            {inputError}
+          </div>
+        )}
+
         <div className="space-y-5">
            <div>
              <label className={`block mb-3 text-sm font-semibold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
@@ -41,29 +75,61 @@ const DownloadReportModal = ({ isOpen, onClose, onDownload }) => {
              </label>
              <div className="space-y-3">
                <label className={`flex items-center p-3 border rounded-xl cursor-pointer transition-colors ${filterType === 'all' ? (isDarkMode ? 'border-blue-500 bg-blue-900/30' : 'border-[#44ACFF] bg-[#89D4FF]/10') : (isDarkMode ? 'border-gray-700 hover:border-gray-600' : 'border-gray-200 hover:border-gray-300')}`}>
-                 <input type="radio" value="all" checked={filterType === 'all'} onChange={(e) => setFilterType(e.target.value)} className="w-4 h-4 text-[#44ACFF] border-gray-300 focus:ring-[#44ACFF]" />
+                 <input type="radio" value="all" checked={filterType === 'all'} onChange={(e) => { setFilterType(e.target.value); setInputError('') }} className="w-4 h-4 text-[#44ACFF] border-gray-300 focus:ring-[#44ACFF]" />
                  <span className={`ml-3 text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>All Records</span>
                </label>
                
                <label className={`flex items-center p-3 border rounded-xl cursor-pointer transition-colors ${filterType === 'weekly' ? (isDarkMode ? 'border-blue-500 bg-blue-900/30' : 'border-[#44ACFF] bg-[#89D4FF]/10') : (isDarkMode ? 'border-gray-700 hover:border-gray-600' : 'border-gray-200 hover:border-gray-300')}`}>
-                 <input type="radio" value="weekly" checked={filterType === 'weekly'} onChange={(e) => setFilterType(e.target.value)} className="w-4 h-4 text-[#44ACFF] border-gray-300 focus:ring-[#44ACFF]" />
+                 <input type="radio" value="weekly" checked={filterType === 'weekly'} onChange={(e) => { setFilterType(e.target.value); setInputError('') }} className="w-4 h-4 text-[#44ACFF] border-gray-300 focus:ring-[#44ACFF]" />
                  <span className={`ml-3 text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>Specific Week</span>
                </label>
                
                {filterType === 'weekly' && (
                  <div className="ml-7 mt-2 animate-in fade-in slide-in-from-top-1">
-                   <input type="week" value={selectedWeek} onChange={(e) => setSelectedWeek(e.target.value)} className={`w-full p-2.5 rounded-lg border text-sm font-medium ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' : 'bg-white border-gray-300 text-gray-900 focus:border-[#44ACFF] focus:ring-2 focus:ring-[#44ACFF]/20'} outline-none transition-colors`} />
+                   <input
+                     type="week"
+                     value={selectedWeek}
+                     min={minWeek}
+                     max={maxWeek}
+                     onChange={(e) => {
+                       const val = e.target.value
+                       if (val && !weeksWithRecords.has(val)) {
+                         setInputError('No records found for that week. Please select a week with logged entries.')
+                         setSelectedWeek('')
+                         return
+                       }
+                       setInputError('')
+                       setSelectedWeek(val)
+                     }}
+                     className={`w-full p-2.5 rounded-lg border text-sm font-medium ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' : 'bg-white border-gray-300 text-gray-900 focus:border-[#44ACFF] focus:ring-2 focus:ring-[#44ACFF]/20'} outline-none transition-colors`}
+                   />
                  </div>
                )}
                
                <label className={`flex items-center p-3 border rounded-xl cursor-pointer transition-colors ${filterType === 'monthly' ? (isDarkMode ? 'border-blue-500 bg-blue-900/30' : 'border-[#44ACFF] bg-[#89D4FF]/10') : (isDarkMode ? 'border-gray-700 hover:border-gray-600' : 'border-gray-200 hover:border-gray-300')}`}>
-                 <input type="radio" value="monthly" checked={filterType === 'monthly'} onChange={(e) => setFilterType(e.target.value)} className="w-4 h-4 text-[#44ACFF] border-gray-300 focus:ring-[#44ACFF]" />
+                 <input type="radio" value="monthly" checked={filterType === 'monthly'} onChange={(e) => { setFilterType(e.target.value); setInputError('') }} className="w-4 h-4 text-[#44ACFF] border-gray-300 focus:ring-[#44ACFF]" />
                  <span className={`ml-3 text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>Specific Month</span>
                </label>
                
                {filterType === 'monthly' && (
                  <div className="ml-7 mt-2 animate-in fade-in slide-in-from-top-1">
-                   <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className={`w-full p-2.5 rounded-lg border text-sm font-medium ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' : 'bg-white border-gray-300 text-gray-900 focus:border-[#44ACFF] focus:ring-2 focus:ring-[#44ACFF]/20'} outline-none transition-colors`} />
+                   <input
+                     type="month"
+                     value={selectedMonth}
+                     min={minMonth}
+                     max={maxMonth}
+                     onChange={(e) => {
+                       const val = e.target.value
+                       if (val && !monthsWithRecords.has(val)) {
+                         setInputError('No records found for that month. Please select a month with logged entries.')
+                         setSelectedMonth('')
+                         return
+                       }
+                       setInputError('')
+                       setSelectedMonth(val)
+                     }}
+                     className={`w-full p-2.5 rounded-lg border text-sm font-medium ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' : 'bg-white border-gray-300 text-gray-900 focus:border-[#44ACFF] focus:ring-2 focus:ring-[#44ACFF]/20'} outline-none transition-colors`}
+                   />
                  </div>
                )}
              </div>
@@ -83,4 +149,4 @@ const DownloadReportModal = ({ isOpen, onClose, onDownload }) => {
   )
 }
 
-export default DownloadReportModal
+export default AttendanceReportModal

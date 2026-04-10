@@ -1,10 +1,10 @@
 import jsPDF from 'jspdf'
-import TEMPLATE_CONFIG from '../config/templateConfig'
+import ATTENDANCE_TEMPLATE_CONFIG from '../config/attendanceTemplateConfig'
 import { loadAttendanceTemplate } from './templateLoader'
 
 const formatReportDate = (value) => {
   if (!value) {
-    return TEMPLATE_CONFIG.placeholders.empty
+    return ATTENDANCE_TEMPLATE_CONFIG.placeholders.empty
   }
 
   return new Date(value).toLocaleDateString('en-US', {
@@ -16,7 +16,7 @@ const formatReportDate = (value) => {
 
 const formatReportTime = (value) => {
   if (!value) {
-    return TEMPLATE_CONFIG.placeholders.empty
+    return ATTENDANCE_TEMPLATE_CONFIG.placeholders.empty
   }
 
   return new Date(`2000-01-01T${value}`).toLocaleTimeString('en-US', {
@@ -30,7 +30,7 @@ const formatReportHours = (value) => {
   const numericValue = Number(value)
 
   if (!Number.isFinite(numericValue) || numericValue < 0) {
-    return TEMPLATE_CONFIG.placeholders.empty
+    return ATTENDANCE_TEMPLATE_CONFIG.placeholders.empty
   }
 
   const hours = Math.floor(numericValue)
@@ -54,11 +54,11 @@ const applyFont = (doc, font) => {
   doc.setFontSize(font.size)
 }
 
-const toPdfX = (x, layoutMetrics) => layoutMetrics.offsetX + ((x / TEMPLATE_CONFIG.template.originalWidth) * layoutMetrics.renderWidth)
+const toPdfX = (x, layoutMetrics) => layoutMetrics.offsetX + ((x / ATTENDANCE_TEMPLATE_CONFIG.template.originalWidth) * layoutMetrics.renderWidth)
 
-const toPdfY = (y, layoutMetrics) => layoutMetrics.offsetY + ((y / TEMPLATE_CONFIG.template.originalHeight) * layoutMetrics.renderHeight)
+const toPdfY = (y, layoutMetrics) => layoutMetrics.offsetY + ((y / ATTENDANCE_TEMPLATE_CONFIG.template.originalHeight) * layoutMetrics.renderHeight)
 
-const toPdfWidth = (width, layoutMetrics) => (width / TEMPLATE_CONFIG.template.originalWidth) * layoutMetrics.renderWidth
+const toPdfWidth = (width, layoutMetrics) => (width / ATTENDANCE_TEMPLATE_CONFIG.template.originalWidth) * layoutMetrics.renderWidth
 
 const drawText = (doc, text, field, layoutMetrics) => {
   doc.text(String(text ?? ''), toPdfX(field.x, layoutMetrics), toPdfY(field.y, layoutMetrics), {
@@ -80,8 +80,8 @@ const chunkRecords = (records, chunkSize) => {
 
 const addTemplateBackground = (doc, templateImage) => {
   const imageProperties = doc.getImageProperties(templateImage)
-  const pageWidth = TEMPLATE_CONFIG.page.width
-  const pageHeight = TEMPLATE_CONFIG.page.height
+  const pageWidth = ATTENDANCE_TEMPLATE_CONFIG.page.width
+  const pageHeight = ATTENDANCE_TEMPLATE_CONFIG.page.height
   const imageRatio = imageProperties.width / imageProperties.height
   const pageRatio = pageWidth / pageHeight
 
@@ -100,7 +100,7 @@ const addTemplateBackground = (doc, templateImage) => {
 
   doc.addImage(
     templateImage,
-    TEMPLATE_CONFIG.template.imageType,
+    ATTENDANCE_TEMPLATE_CONFIG.template.imageType,
     offsetX,
     offsetY,
     renderWidth,
@@ -123,9 +123,9 @@ const getRecordsForReport = (timeRecords) => {
 }
 
 const renderReportPage = (doc, layoutMetrics, user, records, previousTotal = 0) => {
-  applyFont(doc, TEMPLATE_CONFIG.fonts.normal)
-  drawText(doc, user?.name || TEMPLATE_CONFIG.placeholders.empty, TEMPLATE_CONFIG.coordinates.name, layoutMetrics)
-  drawText(doc, user?.company || TEMPLATE_CONFIG.placeholders.empty, TEMPLATE_CONFIG.coordinates.company, layoutMetrics)
+  applyFont(doc, ATTENDANCE_TEMPLATE_CONFIG.fonts.normal)
+  drawText(doc, user?.name || ATTENDANCE_TEMPLATE_CONFIG.placeholders.empty, ATTENDANCE_TEMPLATE_CONFIG.coordinates.name, layoutMetrics)
+  drawText(doc, user?.company || ATTENDANCE_TEMPLATE_CONFIG.placeholders.empty, ATTENDANCE_TEMPLATE_CONFIG.coordinates.company, layoutMetrics)
 
   // Calculate total for this page's records only
   const totalThisPeriod = records.reduce((total, record) => {
@@ -135,17 +135,17 @@ const renderReportPage = (doc, layoutMetrics, user, records, previousTotal = 0) 
   const totalHoursServed = previousTotal + totalThisPeriod
   
   // Render total hours fields
-  drawText(doc, formatReportHours(previousTotal), TEMPLATE_CONFIG.coordinates.previousTotal, layoutMetrics)
-  drawText(doc, formatReportHours(totalThisPeriod), TEMPLATE_CONFIG.coordinates.totalThisPeriod, layoutMetrics)
-  drawText(doc, formatReportHours(totalHoursServed), TEMPLATE_CONFIG.coordinates.totalHoursServed, layoutMetrics)
+  drawText(doc, formatReportHours(previousTotal), ATTENDANCE_TEMPLATE_CONFIG.coordinates.previousTotal, layoutMetrics)
+  drawText(doc, formatReportHours(totalThisPeriod), ATTENDANCE_TEMPLATE_CONFIG.coordinates.totalThisPeriod, layoutMetrics)
+  drawText(doc, formatReportHours(totalHoursServed), ATTENDANCE_TEMPLATE_CONFIG.coordinates.totalHoursServed, layoutMetrics)
 
-  applyFont(doc, TEMPLATE_CONFIG.fonts.table)
-  const rowStep = TEMPLATE_CONFIG.coordinates.table.rowHeight + (TEMPLATE_CONFIG.coordinates.table.rowGap || 0)
-  const rowPositions = TEMPLATE_CONFIG.coordinates.table.rowPositions || []
+  applyFont(doc, ATTENDANCE_TEMPLATE_CONFIG.fonts.table)
+  const rowStep = ATTENDANCE_TEMPLATE_CONFIG.coordinates.table.rowHeight + (ATTENDANCE_TEMPLATE_CONFIG.coordinates.table.rowGap || 0)
+  const rowPositions = ATTENDANCE_TEMPLATE_CONFIG.coordinates.table.rowPositions || []
 
   records.forEach((record, index) => {
-    const rowY = rowPositions[index] ?? (TEMPLATE_CONFIG.coordinates.table.startY + (index * rowStep))
-    const rowFields = TEMPLATE_CONFIG.coordinates.table.columns
+    const rowY = rowPositions[index] ?? (ATTENDANCE_TEMPLATE_CONFIG.coordinates.table.startY + (index * rowStep))
+    const rowFields = ATTENDANCE_TEMPLATE_CONFIG.coordinates.table.columns
 
     drawText(doc, formatReportDate(record.date), { ...rowFields.date, y: rowY }, layoutMetrics)
     drawText(doc, formatReportTime(record.clockInTime), { ...rowFields.timeIn, y: rowY }, layoutMetrics)
@@ -156,9 +156,9 @@ const renderReportPage = (doc, layoutMetrics, user, records, previousTotal = 0) 
 
 export const generateAttendanceReport = async ({ user, timeRecords, totalHoursWorked, previousTotal = 0 }) => {
   const doc = new jsPDF(
-    TEMPLATE_CONFIG.page.orientation,
-    TEMPLATE_CONFIG.page.unit,
-    TEMPLATE_CONFIG.page.format,
+    ATTENDANCE_TEMPLATE_CONFIG.page.orientation,
+    ATTENDANCE_TEMPLATE_CONFIG.page.unit,
+    ATTENDANCE_TEMPLATE_CONFIG.page.format,
     true
   )
 
@@ -168,11 +168,11 @@ export const generateAttendanceReport = async ({ user, timeRecords, totalHoursWo
     author: user?.name || 'DTR App',
     creator: 'DTR App'
   })
-  doc.setTextColor(...TEMPLATE_CONFIG.textColor)
+  doc.setTextColor(...ATTENDANCE_TEMPLATE_CONFIG.textColor)
 
-  const templateImage = await loadAttendanceTemplate(TEMPLATE_CONFIG.template.src)
+  const templateImage = await loadAttendanceTemplate(ATTENDANCE_TEMPLATE_CONFIG.template.src)
   const recordsForReport = getRecordsForReport(timeRecords)
-  const pageChunks = chunkRecords(recordsForReport, TEMPLATE_CONFIG.coordinates.table.maxRows)
+  const pageChunks = chunkRecords(recordsForReport, ATTENDANCE_TEMPLATE_CONFIG.coordinates.table.maxRows)
   const pages = pageChunks.length > 0 ? pageChunks : [[]]
 
   let cumulativePreviousTotal = previousTotal // Start with external previous total
@@ -180,10 +180,10 @@ export const generateAttendanceReport = async ({ user, timeRecords, totalHoursWo
   pages.forEach((pageRecords, pageIndex) => {
     if (pageIndex > 0) {
       doc.addPage(
-        TEMPLATE_CONFIG.page.format,
-        TEMPLATE_CONFIG.page.orientation
+        ATTENDANCE_TEMPLATE_CONFIG.page.format,
+        ATTENDANCE_TEMPLATE_CONFIG.page.orientation
       )
-      doc.setTextColor(...TEMPLATE_CONFIG.textColor)
+      doc.setTextColor(...ATTENDANCE_TEMPLATE_CONFIG.textColor)
     }
 
     const layoutMetrics = addTemplateBackground(doc, templateImage)
@@ -199,5 +199,5 @@ export const generateAttendanceReport = async ({ user, timeRecords, totalHoursWo
   const currentDate = new Date().toISOString().split('T')[0]
   const safeName = sanitizeFileName(user?.name || 'Student')
 
-  doc.save(`${TEMPLATE_CONFIG.template.fileNamePrefix}_${safeName}_${currentDate}.pdf`)
+  doc.save(`${ATTENDANCE_TEMPLATE_CONFIG.template.fileNamePrefix}_${safeName}_${currentDate}.pdf`)
 }

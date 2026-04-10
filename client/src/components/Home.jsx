@@ -5,8 +5,9 @@ import SuccessModal from './SuccessModal'
 import AddRecordModal from './AddRecordModal'
 import InternshipSetupModal from './InternshipSetupModal'
 import AlertModal from './AlertModal'
-import DownloadReportModal from './DownloadReportModal'
-import { generateAttendanceReport } from '../utils/reportGenerator'
+import AttendanceReportModal from './AttendanceReportModal'
+import WeeklyReportModal from './WeeklyReportModal'
+import { generateAttendanceReport } from '../utils/attendanceReportGenerator'
 import { useTheme } from '../contexts/ThemeContext'
 
 const Home = () => {
@@ -19,6 +20,7 @@ const Home = () => {
   const [showAddRecord, setShowAddRecord] = useState(false)
   const [showConfig, setShowConfig] = useState(false)
   const [showDownloadModal, setShowDownloadModal] = useState(false)
+  const [showWeeklyReportModal, setShowWeeklyReportModal] = useState(false)
   const [timeRecords, setTimeRecords] = useState([])
   const [totalHoursWorked, setTotalHoursWorked] = useState(0)
   const [editingRecord, setEditingRecord] = useState(null)
@@ -1133,10 +1135,19 @@ const Home = () => {
         onRemoveLeaveDate={handleRemoveLeaveDate}
       />
 
-      <DownloadReportModal
+      <AttendanceReportModal
         isOpen={showDownloadModal}
         onClose={() => setShowDownloadModal(false)}
         onDownload={handleDownloadReport}
+        timeRecords={timeRecords}
+      />
+
+      <WeeklyReportModal
+        isOpen={showWeeklyReportModal}
+        onClose={() => setShowWeeklyReportModal(false)}
+        timeRecords={timeRecords}
+        user={user}
+        internshipConfig={{ requiredHours, startDate, workingDays, estimatedEndDate }}
       />
 
       {/* Main Content */}
@@ -1285,6 +1296,16 @@ const Home = () => {
                   <span>Delete Selected ({selectedRecords.length})</span>
                 </button>
               )}
+              <button
+                onClick={() => setShowWeeklyReportModal(true)}
+                disabled={timeRecords.length === 0}
+                className={`flex flex-1 items-center justify-center space-x-2 rounded-xl px-4 py-2 text-sm font-semibold shadow-md transition-all duration-200 hover:scale-[1.02] disabled:cursor-not-allowed disabled:transform-none disabled:opacity-50 sm:w-auto sm:flex-initial ${isDarkMode ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-black hover:shadow-[0_0_15px_rgba(6,182,212,0.4)]' : 'bg-gradient-to-r from-[#FE9EC7]/80 to-[#F9F6C4]/80 text-slate-900 border border-[#FE9EC7]/50'}`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span>Weekly Report</span>
+              </button>
               <button
                 onClick={() => setShowDownloadModal(true)}
                 disabled={isGeneratingReport || timeRecords.length === 0}
