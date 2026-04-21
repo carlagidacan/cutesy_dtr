@@ -132,9 +132,9 @@ const WeeklyReportModal = ({ isOpen, onClose, timeRecords, user, internshipConfi
       <div className={`relative w-full max-w-4xl overflow-hidden rounded-2xl sm:rounded-3xl shadow-2xl transition-all max-h-[90vh] flex flex-col ${isDarkMode ? 'border border-cyan-500/30 bg-[#121212]' : 'bg-white'}`}>
         
         {/* Header */}
-        <div className={`px-6 py-5 border-b flex-shrink-0 ${isDarkMode ? 'border-cyan-500/30 bg-black/40' : 'border-[#89D4FF]/30 bg-gradient-to-r from-[#F9F6C4]/30 to-[#89D4FF]/10'}`}>
+        <div className={`px-4 sm:px-6 py-4 sm:py-5 border-b flex-shrink-0 ${isDarkMode ? 'border-cyan-500/30 bg-black/40' : 'border-[#89D4FF]/30 bg-gradient-to-r from-[#F9F6C4]/30 to-[#89D4FF]/10'}`}>
           <div className="flex items-center justify-between">
-            <h3 className={`text-xl font-bold ${isDarkMode ? 'text-cyan-50' : 'text-slate-900'}`}>
+            <h3 className={`text-lg sm:text-xl font-bold ${isDarkMode ? 'text-cyan-50' : 'text-slate-900'} pr-2`}>
               Weekly Accomplishment Report
             </h3>
             <button
@@ -153,7 +153,7 @@ const WeeklyReportModal = ({ isOpen, onClose, timeRecords, user, internshipConfi
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
+        <div className="p-4 sm:p-6 overflow-y-auto custom-scrollbar flex-1">
           {errorMsg && (
             <div className={`mb-4 rounded-xl border p-3 text-sm ${isDarkMode ? 'border-red-500/50 bg-red-950/50 text-red-200' : 'border-red-200 bg-red-50 text-red-600'}`}>
               {errorMsg}
@@ -204,14 +204,14 @@ const WeeklyReportModal = ({ isOpen, onClose, timeRecords, user, internshipConfi
           </div>
 
           <div className="mb-4">
-            <div className="flex justify-between items-center mb-2">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-0 mb-3 sm:mb-2">
               <label className={`block text-sm font-semibold ${isDarkMode ? 'text-cyan-100' : 'text-slate-700'}`}>
                 Learnings, Applications, & Difficulties
               </label>
               <button 
                 onClick={handleGenerateReflection}
                 disabled={isGeneratingAI || !selectedWeek || !tasksDraft}
-                className={`py-1.5 px-4 rounded-lg text-xs sm:text-sm font-medium transition-all shadow-sm flex items-center gap-2 ${
+                className={`self-start sm:self-auto py-1.5 px-4 rounded-lg text-xs sm:text-sm font-medium transition-all shadow-sm flex items-center gap-2 ${
                   isDarkMode 
                     ? 'bg-gradient-to-r from-purple-900/50 to-cyan-900/50 border border-cyan-500/50 text-cyan-100 hover:bg-cyan-900/60 disabled:opacity-50' 
                     : 'bg-gradient-to-r from-[#FE9EC7]/20 to-[#89D4FF]/20 border border-[#89D4FF]/70 text-[#44ACFF] hover:bg-[#89D4FF]/30 disabled:opacity-50'
@@ -226,7 +226,12 @@ const WeeklyReportModal = ({ isOpen, onClose, timeRecords, user, internshipConfi
                     Generating...
                   </>
                 ) : (
-                  <>Auto-Generate via AI</>
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    Auto-Generate
+                  </>
                 )}
               </button>
             </div>
@@ -246,7 +251,7 @@ const WeeklyReportModal = ({ isOpen, onClose, timeRecords, user, internshipConfi
         </div>
 
         {/* Footer */}
-        <div className={`px-6 py-4 border-t flex-shrink-0 flex flex-col-reverse sm:flex-row justify-end gap-3 rounded-b-2xl sm:rounded-b-3xl ${isDarkMode ? 'border-cyan-500/30 bg-black/40' : 'border-[#89D4FF]/30 bg-gray-50'}`}>
+        <div className={`px-4 sm:px-6 py-4 border-t flex-shrink-0 flex flex-col-reverse sm:flex-row justify-end gap-3 rounded-b-2xl sm:rounded-b-3xl ${isDarkMode ? 'border-cyan-500/30 bg-black/40' : 'border-[#89D4FF]/30 bg-gray-50'}`}>
           <button
             onClick={onClose}
             className={`w-full sm:w-auto px-6 py-2.5 rounded-xl text-sm font-semibold transition-all ${

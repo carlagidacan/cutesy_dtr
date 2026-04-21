@@ -1284,38 +1284,38 @@ const Home = () => {
                 );
               })()}
             </div>
-            <div className="flex items-center space-x-2 w-full sm:w-auto">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:items-center sm:space-x-2 sm:gap-0 w-full sm:w-auto">
               {selectedRecords.length > 0 && (
                 <button
                   onClick={handleDeleteSelected}
-                  className="flex items-center justify-center space-x-1 rounded-xl bg-red-50 px-3 py-2 text-sm font-semibold text-red-600 shadow-sm border border-red-200 transition-all duration-200 hover:bg-red-100 sm:w-auto"
+                  className="col-span-2 sm:col-span-1 flex items-center justify-center space-x-1 sm:space-x-2 rounded-xl bg-red-50 px-3 py-2 text-xs sm:text-sm font-semibold text-red-600 shadow-sm border border-red-200 transition-all duration-200 hover:bg-red-100 sm:w-auto"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
-                  <span>Delete Selected ({selectedRecords.length})</span>
+                  <span className="whitespace-nowrap">Delete Selected ({selectedRecords.length})</span>
                 </button>
               )}
               <button
                 onClick={() => setShowWeeklyReportModal(true)}
                 disabled={timeRecords.length === 0}
-                className={`flex flex-1 items-center justify-center space-x-2 rounded-xl px-4 py-2 text-sm font-semibold shadow-md transition-all duration-200 hover:scale-[1.02] disabled:cursor-not-allowed disabled:transform-none disabled:opacity-50 sm:w-auto sm:flex-initial ${isDarkMode ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-black hover:shadow-[0_0_15px_rgba(6,182,212,0.4)]' : 'bg-gradient-to-r from-[#FE9EC7]/80 to-[#F9F6C4]/80 text-slate-900 border border-[#FE9EC7]/50'}`}
+                className={`col-span-1 flex items-center justify-center space-x-1 sm:space-x-2 rounded-xl px-2 sm:px-4 py-2 text-xs sm:text-sm font-semibold shadow-md transition-all duration-200 hover:scale-[1.02] disabled:cursor-not-allowed disabled:transform-none disabled:opacity-50 sm:w-auto sm:flex-initial ${isDarkMode ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-black hover:shadow-[0_0_15px_rgba(6,182,212,0.4)]' : 'bg-gradient-to-r from-[#FE9EC7]/80 to-[#F9F6C4]/80 text-slate-900 border border-[#FE9EC7]/50'}`}
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                <span>Weekly Report</span>
+                <span className="whitespace-nowrap">Weekly Report</span>
               </button>
               <button
                 onClick={() => setShowDownloadModal(true)}
                 disabled={isGeneratingReport || timeRecords.length === 0}
-                className="flex flex-1 items-center justify-center space-x-2 rounded-xl bg-gradient-to-r from-[#44ACFF] to-[#89D4FF] px-4 py-2 text-sm font-semibold text-slate-900 shadow-[0_16px_32px_rgba(68,172,255,0.2)] transition-all duration-200 hover:scale-[1.02] hover:shadow-[0_20px_36px_rgba(68,172,255,0.24)] disabled:cursor-not-allowed disabled:transform-none disabled:from-gray-300 disabled:to-gray-400 sm:w-auto sm:flex-initial"
+                className="col-span-1 flex items-center justify-center space-x-1 sm:space-x-2 rounded-xl bg-gradient-to-r from-[#44ACFF] to-[#89D4FF] px-2 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-slate-900 shadow-[0_16px_32px_rgba(68,172,255,0.2)] transition-all duration-200 hover:scale-[1.02] hover:shadow-[0_20px_36px_rgba(68,172,255,0.24)] disabled:cursor-not-allowed disabled:transform-none disabled:from-gray-300 disabled:to-gray-400 sm:w-auto sm:flex-initial"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                <span>
-                  {isGeneratingReport ? 'Generating...' : timeRecords.length === 0 ? 'No Records Available' : 'Download Report'}
+                <span className="truncate">
+                  {isGeneratingReport ? 'Generating...' : timeRecords.length === 0 ? 'No Records' : 'Download Report'}
                 </span>
               </button>
             </div>
@@ -1334,16 +1334,18 @@ const Home = () => {
                         className="w-4 h-4 rounded border-gray-300 text-[#44ACFF] focus:ring-[#44ACFF]"
                       />
                     </div>
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-1 sm:space-y-0 flex-1">
-                      <div className="text-sm font-medium text-gray-900 min-w-24">
-                        {new Date(record.date).toLocaleDateString('en-US', {
-                          weekday: 'short',
-                          month: 'short',
-                          day: 'numeric'
-                        })}
-                      </div>
-                      <div className="text-base font-bold text-[#44ACFF] sm:text-lg min-w-20">
-                        {formatHoursAndMinutes(parseFloat(record.hours))}
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-1.5 sm:space-y-0 flex-1 min-w-0">
+                      <div className="flex items-center space-x-3 sm:space-x-0 sm:contents">
+                        <div className="text-sm font-medium text-gray-900 sm:min-w-24">
+                          {new Date(record.date).toLocaleDateString('en-US', {
+                            weekday: 'short',
+                            month: 'short',
+                            day: 'numeric'
+                          })}
+                        </div>
+                        <div className="text-[15px] font-bold text-[#44ACFF] sm:text-lg sm:min-w-20">
+                          {formatHoursAndMinutes(parseFloat(record.hours))}
+                        </div>
                       </div>
                       {record.description && (
                         <div className="text-xs sm:text-sm text-gray-600 truncate max-w-full sm:max-w-xs xl:max-w-md">
