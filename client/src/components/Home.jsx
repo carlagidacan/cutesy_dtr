@@ -265,60 +265,31 @@ const Home = () => {
         return total + parseFloat(record.hours || 0)
       }, 0)
 
-      // Try to get total from backend, but use calculated total as fallback
-      try {
-        const totalResponse = await axios.get('/api/records/total', {
-          headers: { Authorization: `Bearer ${token}` }
-        })
+      // Always use calculatedTotal (derived from fetched records) for display and estimation.
+      // The /api/records/total aggregate can return 0 due to type mismatches, so we don't rely on it.
+      setTotalHoursWorked(calculatedTotal)
 
-        const effectiveRequiredHours = configOverride?.requiredHours?.toString() ?? requiredHours
-        const effectiveStartDate = configOverride?.startDate?.split?.('T')?.[0] ?? startDate
-        const effectiveWorkingDays = configOverride?.workingDays ?? workingDays
-        const effectiveexcludeLunchBreak = configOverride?.excludeLunchBreak ?? excludeLunchBreak
-        const effectiveLunchBreakDuration = configOverride?.lunchBreakDuration ?? lunchBreakDuration
-        const effectiveHolidays = configOverride?.holidays ?? holidays
-        const effectiveLeaveAndAbsentDays = configOverride?.leaveAndAbsentDays ?? leaveAndAbsentDays
+      const effectiveRequiredHours = configOverride?.requiredHours?.toString() ?? requiredHours
+      const effectiveStartDate = configOverride?.startDate?.split?.('T')?.[0] ?? startDate
+      const effectiveWorkingDays = configOverride?.workingDays ?? workingDays
+      const effectiveexcludeLunchBreak = configOverride?.excludeLunchBreak ?? excludeLunchBreak
+      const effectiveLunchBreakDuration = configOverride?.lunchBreakDuration ?? lunchBreakDuration
+      const effectiveHolidays = configOverride?.holidays ?? holidays
+      const effectiveLeaveAndAbsentDays = configOverride?.leaveAndAbsentDays ?? leaveAndAbsentDays
 
-        // Recalculate estimated end date based on progress
-        if (effectiveRequiredHours && effectiveStartDate) {
-          calculateEndDateWithProgress(
-            effectiveRequiredHours,
-            effectiveStartDate,
-            effectiveWorkingDays,
-            backendTotal,
-            effectiveexcludeLunchBreak,
-            effectiveLunchBreakDuration,
-            effectiveHolidays,
-            recordsResponse.data,
-            effectiveLeaveAndAbsentDays
-          )
-        }
-      } catch (totalError) {
-        console.warn('Backend total endpoint failed, using calculated total:', totalError)
-        setTotalHoursWorked(calculatedTotal)
-
-        const effectiveRequiredHours = configOverride?.requiredHours?.toString() ?? requiredHours
-        const effectiveStartDate = configOverride?.startDate?.split?.('T')?.[0] ?? startDate
-        const effectiveWorkingDays = configOverride?.workingDays ?? workingDays
-        const effectiveexcludeLunchBreak = configOverride?.excludeLunchBreak ?? excludeLunchBreak
-        const effectiveLunchBreakDuration = configOverride?.lunchBreakDuration ?? lunchBreakDuration
-        const effectiveHolidays = configOverride?.holidays ?? holidays
-        const effectiveLeaveAndAbsentDays = configOverride?.leaveAndAbsentDays ?? leaveAndAbsentDays
-
-        // Recalculate estimated end date based on progress
-        if (effectiveRequiredHours && effectiveStartDate) {
-          calculateEndDateWithProgress(
-            effectiveRequiredHours,
-            effectiveStartDate,
-            effectiveWorkingDays,
-            calculatedTotal,
-            effectiveexcludeLunchBreak,
-            effectiveLunchBreakDuration,
-            effectiveHolidays,
-            recordsResponse.data,
-            effectiveLeaveAndAbsentDays
-          )
-        }
+      // Recalculate estimated end date based on progress
+      if (effectiveRequiredHours && effectiveStartDate) {
+        calculateEndDateWithProgress(
+          effectiveRequiredHours,
+          effectiveStartDate,
+          effectiveWorkingDays,
+          calculatedTotal,
+          effectiveexcludeLunchBreak,
+          effectiveLunchBreakDuration,
+          effectiveHolidays,
+          recordsResponse.data,
+          effectiveLeaveAndAbsentDays
+        )
       }
 
     } catch (error) {
@@ -778,9 +749,10 @@ const Home = () => {
 
     const totalHours = Math.max(0, Number(hours))
     const remainingHours = Math.max(0, totalHours - Math.max(0, Number(workedHours || 0)))
-    const baseHoursPerDay = 9
-    const effectiveHoursPerDay = excludeLunch ? Math.max(0.1, baseHoursPerDay - lunchDuration) : baseHoursPerDay
-    const requiredDays = Math.ceil(remainingHours / effectiveHoursPerDay) // Notice no "+ Number(leaveDays || 0)" here, we handle specific dates later
+    // Use 8 as the effective hours per day — records already have lunch excluded,
+    // so we should not deduct lunch again here.
+    const effectiveHoursPerDay = 8
+    const requiredDays = Math.ceil(remainingHours / effectiveHoursPerDay)
     const workingDayNumbers = []
 
     if (selectedDays.sunday) workingDayNumbers.push(0)
@@ -1249,35 +1221,31 @@ const Home = () => {
               {timeRecords.length > 0 && (() => {
                 const isAllSelected = paginatedRecords.length > 0 && selectedRecords.length >= paginatedRecords.length && paginatedRecords.every(r => selectedRecords.includes(r._id));
                 return (
-                  <label className={`group relative flex items-center gap-2 cursor-pointer rounded-lg px-2.5 py-1.5 transition-all duration-300 hover:scale-105 active:scale-95 ${
-                    isAllSelected
-                      ? (isDarkMode ? 'bg-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.15)] ring-1 ring-cyan-500/50' : 'bg-[#44ACFF]/10 shadow-sm ring-1 ring-[#44ACFF]/30')
-                      : (isDarkMode ? 'bg-gray-800/50 hover:bg-gray-700/60' : 'bg-gray-100 hover:bg-gray-200/80')
-                  }`}>
-                    <div className={`relative flex h-4 w-4 items-center justify-center rounded border-2 transition-all duration-300 ${
-                      isAllSelected
-                        ? (isDarkMode ? 'border-cyan-400 bg-cyan-500/20' : 'border-[#44ACFF] bg-[#44ACFF]')
-                        : (isDarkMode ? 'border-gray-500 group-hover:border-cyan-500/50' : 'border-gray-300 group-hover:border-[#44ACFF]/50')
+                  <label className={`group relative flex items-center gap-2 cursor-pointer rounded-lg px-2.5 py-1.5 transition-all duration-300 hover:scale-105 active:scale-95 ${isAllSelected
+                    ? (isDarkMode ? 'bg-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.15)] ring-1 ring-cyan-500/50' : 'bg-[#44ACFF]/10 shadow-sm ring-1 ring-[#44ACFF]/30')
+                    : (isDarkMode ? 'bg-gray-800/50 hover:bg-gray-700/60' : 'bg-gray-100 hover:bg-gray-200/80')
                     }`}>
+                    <div className={`relative flex h-4 w-4 items-center justify-center rounded border-2 transition-all duration-300 ${isAllSelected
+                      ? (isDarkMode ? 'border-cyan-400 bg-cyan-500/20' : 'border-[#44ACFF] bg-[#44ACFF]')
+                      : (isDarkMode ? 'border-gray-500 group-hover:border-cyan-500/50' : 'border-gray-300 group-hover:border-[#44ACFF]/50')
+                      }`}>
                       <input
                         type="checkbox"
                         className="absolute opacity-0 h-0 w-0 cursor-pointer"
                         checked={isAllSelected}
                         onChange={toggleAllRecordsSelection}
                       />
-                      <svg className={`h-3 w-3 transition-all duration-300 ${
-                        isAllSelected 
-                          ? (isDarkMode ? 'text-cyan-300 scale-100 opacity-100' : 'text-white scale-100 opacity-100') 
-                          : 'scale-50 opacity-0'
-                      }`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                      <svg className={`h-3 w-3 transition-all duration-300 ${isAllSelected
+                        ? (isDarkMode ? 'text-cyan-300 scale-100 opacity-100' : 'text-white scale-100 opacity-100')
+                        : 'scale-50 opacity-0'
+                        }`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                       </svg>
                     </div>
-                    <span className={`text-xs sm:text-sm font-semibold tracking-wide transition-colors duration-300 select-none ${
-                      isAllSelected
-                        ? (isDarkMode ? 'text-cyan-100' : 'text-[#44ACFF]')
-                        : (isDarkMode ? 'text-gray-400 group-hover:text-cyan-100' : 'text-gray-500 group-hover:text-slate-700')
-                    }`}>
+                    <span className={`text-xs sm:text-sm font-semibold tracking-wide transition-colors duration-300 select-none ${isAllSelected
+                      ? (isDarkMode ? 'text-cyan-100' : 'text-[#44ACFF]')
+                      : (isDarkMode ? 'text-gray-400 group-hover:text-cyan-100' : 'text-gray-500 group-hover:text-slate-700')
+                      }`}>
                       {isAllSelected ? "Deselect All" : "Select All Page"}
                     </span>
                   </label>
