@@ -30,7 +30,8 @@ const Home = () => {
     dateInput: '',
     clockInTime: '',
     clockOutTime: '',
-    description: ''
+    description: '',
+    lunchExcluded: false
   })
   const [workingDays, setWorkingDays] = useState({
     monday: true,
@@ -301,7 +302,8 @@ const Home = () => {
   const addTimeRecord = async () => {
     try {
       const token = localStorage.getItem('token')
-      const hours = calculateHoursFromTimes(recordForm.clockInTime, recordForm.clockOutTime)
+      const recordLunchExcluded = recordForm.lunchExcluded ?? excludeLunchBreak
+      const hours = calculateHoursFromTimes(recordForm.clockInTime, recordForm.clockOutTime, recordLunchExcluded)
       const datesToSubmit = recordForm.dates && recordForm.dates.length > 0
         ? recordForm.dates
         : [recordForm.date]
@@ -326,7 +328,8 @@ const Home = () => {
         dateInput: '',
         clockInTime: '',
         clockOutTime: '',
-        description: ''
+        description: '',
+        lunchExcluded: excludeLunchBreak
       })
 
       // Refresh records
@@ -344,7 +347,8 @@ const Home = () => {
   const updateTimeRecord = async () => {
     try {
       const token = localStorage.getItem('token')
-      const hours = calculateHoursFromTimes(recordForm.clockInTime, recordForm.clockOutTime)
+      const recordLunchExcluded = recordForm.lunchExcluded ?? excludeLunchBreak
+      const hours = calculateHoursFromTimes(recordForm.clockInTime, recordForm.clockOutTime, recordLunchExcluded)
       const recordData = {
         ...recordForm,
         hours: hours
@@ -363,7 +367,8 @@ const Home = () => {
         dateInput: '',
         clockInTime: '',
         clockOutTime: '',
-        description: ''
+        description: '',
+        lunchExcluded: excludeLunchBreak
       })
 
       // Refresh records
@@ -454,9 +459,12 @@ const Home = () => {
     setEditingRecord(null)
     setRecordForm({
       date: new Date().toISOString().split('T')[0],
+      dates: [],
+      dateInput: '',
       clockInTime: '',
       clockOutTime: '',
-      description: ''
+      description: '',
+      lunchExcluded: excludeLunchBreak
     })
     setShowAddRecord(true)
   }
@@ -471,9 +479,12 @@ const Home = () => {
 
     setRecordForm({
       date: record.date.split('T')[0],
+      dates: [],
+      dateInput: '',
       clockInTime: record.clockInTime || defaultStart,
       clockOutTime: record.clockOutTime || endTime.toTimeString().slice(0, 5),
-      description: record.description || ''
+      description: record.description || '',
+      lunchExcluded: excludeLunchBreak
     })
     setShowAddRecord(true)
   }
@@ -596,7 +607,7 @@ const Home = () => {
     }
   }
 
-  const calculateHoursFromTimes = (clockIn, clockOut) => {
+  const calculateHoursFromTimes = (clockIn, clockOut, overrideLunchExcluded) => {
     if (!clockIn || !clockOut) return 0
 
     const startTime = new Date(`2000-01-01T${clockIn}:00`)
@@ -610,8 +621,11 @@ const Home = () => {
     const diffInMs = endTime - startTime
     let hours = Math.round((diffInMs / (1000 * 60 * 60)) * 100) / 100 // Round to 2 decimal places
 
+    // Use per-record override if provided, otherwise fall back to global setting
+    const shouldExcludeLunch = overrideLunchExcluded !== undefined ? overrideLunchExcluded : excludeLunchBreak
+
     // Exclude lunch break if enabled
-    if (excludeLunchBreak && hours > lunchBreakDuration) {
+    if (shouldExcludeLunch && hours > lunchBreakDuration) {
       hours -= lunchBreakDuration
     }
 

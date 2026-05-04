@@ -48,7 +48,7 @@ const AddRecordModal = ({
       return
     }
 
-    const hours = calculateHoursFromTimes(recordForm.clockInTime, recordForm.clockOutTime)
+    const hours = calculateHoursFromTimes(recordForm.clockInTime, recordForm.clockOutTime, recordForm.lunchExcluded)
     if (hours <= 0) {
       onValidationError?.('Clock out time must be after clock in time.')
       return
@@ -190,6 +190,43 @@ const AddRecordModal = ({
               </div>
             </div>
 
+            {/* Lunch Break Toggle */}
+            <div className="flex items-center justify-between rounded-2xl border-2 border-[#89D4FF]/40 bg-white px-4 py-3 transition-all duration-200 hover:border-[#89D4FF] sm:px-5 sm:py-4">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-[#F9F6C4]">
+                  <svg className="w-4 h-4 text-[#44ACFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m8.66-9h-1M4.34 12h-1m14.95 5.66-.7-.7M6.7 6.7l-.7-.7m12.02.02-.7.7M6.7 17.3l-.7.7" />
+                    <circle cx="12" cy="12" r="4" strokeWidth="2" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-700">Lunch Break</p>
+                  <p className="text-xs text-gray-400">
+                    {recordForm.lunchExcluded
+                      ? `${formatHoursAndMinutes(lunchBreakDuration)} deducted from total`
+                      : 'Included in total hours'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRecordForm({ ...recordForm, lunchExcluded: !recordForm.lunchExcluded })}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-4 ${
+                  recordForm.lunchExcluded
+                    ? 'bg-[#44ACFF] focus:ring-[#89D4FF]/30'
+                    : 'bg-gray-200 focus:ring-gray-200/30'
+                }`}
+                role="switch"
+                aria-checked={recordForm.lunchExcluded}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition-transform duration-200 ${
+                    recordForm.lunchExcluded ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
             {recordForm.clockInTime && recordForm.clockOutTime && (
               <div className="rounded-2xl border border-[#89D4FF]/40 bg-gradient-to-r from-[#F9F6C4]/70 to-[#89D4FF]/18 p-3 sm:p-4">
                 <div className="flex items-center justify-center space-x-2">
@@ -199,11 +236,11 @@ const AddRecordModal = ({
                   <div className="text-center">
                     <p className="text-base font-bold text-slate-900 sm:text-lg">
                       {!editingRecord && (recordForm.dates || []).length > 1
-                        ? `${formatHoursAndMinutes(calculateHoursFromTimes(recordForm.clockInTime, recordForm.clockOutTime))} × ${(recordForm.dates || []).length} days`
-                        : `Total time: ${formatHoursAndMinutes(calculateHoursFromTimes(recordForm.clockInTime, recordForm.clockOutTime))}`
+                        ? `${formatHoursAndMinutes(calculateHoursFromTimes(recordForm.clockInTime, recordForm.clockOutTime, recordForm.lunchExcluded))} × ${(recordForm.dates || []).length} days`
+                        : `Total time: ${formatHoursAndMinutes(calculateHoursFromTimes(recordForm.clockInTime, recordForm.clockOutTime, recordForm.lunchExcluded))}`
                       }
                     </p>
-                    {excludeLunchBreak && (
+                    {recordForm.lunchExcluded && (
                       <p className="text-xs text-slate-600 mt-1">
                         (Lunch break of {formatHoursAndMinutes(lunchBreakDuration)} excluded)
                       </p>
