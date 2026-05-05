@@ -1094,6 +1094,7 @@ const Home = () => {
         onValidationError={openAlertModal}
         excludeLunchBreak={excludeLunchBreak}
         lunchBreakDuration={lunchBreakDuration}
+        workingDays={workingDays}
       />
 
       <InternshipSetupModal
